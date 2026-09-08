@@ -15,8 +15,10 @@ from config.smc_params import ASIA_SESSION_RESTRICT_ENTRIES
 from core.data_feed import HyperliquidDataFeed, CACHE_DIR
 from core.execution_engine import ExecutionEngine
 from bots.agents.desk_team import ProfessorAgent, DeskPipelineResult
+from bots.notifications import NotificationManager
 
 STATE_FILE = CACHE_DIR / "paper_trading_state.json"
+
 
 
 class PaperBasket:
@@ -163,8 +165,12 @@ class PaperTradingDaemon:
         self.all_symbols: List[str] = sorted(list(set().union(*(b.symbols for b in self.baskets.values()))))
         self.current_market_prices: Dict[str, float] = {sym: 0.0 for sym in self.all_symbols}
 
+        # Gestionnaire de notifications temps réel (Discord / Telegram)
+        self.notifier = NotificationManager()
+
         # Restauration automatique de l'état persistant si disponible sur le disque
         self.load_state(self.state_file)
+
 
     # =========================================================================
     # Propriétés de compatibilité ascendante (mappées sur le panier actif)
@@ -365,6 +371,8 @@ class PaperTradingDaemon:
 
         # 2. Cycle pour chaque panier en parallèle
         for b_key, basket in self.baskets.items():
+            had_active_pos = bool(basket.execution.active_position)
+
             # Mise à jour des positions actives si le marché a bougé
             if basket.execution.active_position:
                 pos_sym = basket.execution.active_position.get("symbol")
@@ -387,6 +395,9 @@ class PaperTradingDaemon:
                         basket.closed_trades.append(closed_trade)
                         state_changed = True
 
+                        # Alerte mobile de trade clôturé
+                        self.notifier.notify_trade_closed(basket.name, closed_trade)
+
                         now_str = time.strftime("%H:%M:%S")
                         if pos_sym in basket.professors:
                             basket.professors[pos_sym].activity_log.append(
@@ -397,6 +408,15 @@ class PaperTradingDaemon:
                                     "message": f"[{basket.name}] Position {pos_sym} clôturée [{closed_trade['exit_reason']}] PnL: {pnl:+.2f}$ ({r_multiple:+.1f}R) | Solde: {basket.current_balance:.2f}$"
                                 })()
                             )
+
+            # Notification si un ordre limite vient d'être exécuté (Filled)
+            if not had_active_pos and basket.execution.active_position:
+                self.notifier.notify_position_filled(basket.name, basket.execution.active_position)
+
+            # Notification si le True Breakeven vient d'être activé
+            if basket.execution.active_position and basket.execution.active_position.get("be_activated") and not basket.execution.active_position.get("_be_notified"):
+                self.notifier.notify_breakeven_activated(basket.name, basket.execution.active_position)
+                basket.execution.active_position["_be_notified"] = True
 
             # Nettoyage des ordres limites expirés (> 3 min)
             canceled_count = basket.execution.cancel_stale_orders()
@@ -431,9 +451,11 @@ class PaperTradingDaemon:
                 if sym in basket.professors:
                     pipeline_result: DeskPipelineResult = basket.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
                     if pipeline_result.approved and pipeline_result.proposal:
-                        basket.execution.place_bracket_order(pipeline_result.proposal)
+                        order_ticket = basket.execution.place_bracket_order(pipeline_result.proposal)
+                        self.notifier.notify_order_placed(basket.name, order_ticket)
                         state_changed = True
                         break  # Un ordre placé pour ce panier à ce cycle
+
 
         if state_changed:
             self.save_state(self.state_file)
