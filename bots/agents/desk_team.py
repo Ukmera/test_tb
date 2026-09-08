@@ -290,6 +290,68 @@ class LisbonAgent:
         return True, "Recheck OK", logs
 
 
+class BogotaAgent:
+    """BOGOTA (Cross-Exchange Lead-Lag Scout) :
+    Surveille en direct les cours sur Binance Futures vs Hyperliquid DEX.
+    Détecte les décalages de prix (lead-lag) et bloque les entrées toxiques."""
+    def __init__(self):
+        self.binance_fapi_ticker_url = "https://fapi.binance.com/fapi/v1/ticker/bookTicker"
+        self.bybit_ticker_url = "https://api.bybit.com/v5/market/tickers"
+
+    def check_lead_lag(self, symbol: str, is_long: bool, hl_mid_px: float) -> Tuple[bool, str, List[AgentMessage]]:
+        logs = []
+        now_str = time.strftime("%H:%M:%S")
+        sym_clean = symbol.upper().replace("USDT", "")
+
+        try:
+            if sym_clean == "MNT":
+                # MNT est le jeton de Bybit/Mantle -> Leader mondial = Bybit Linear
+                resp = requests.get(f"{self.bybit_ticker_url}?category=linear&symbol=MNTUSDT", timeout=2)
+                venue = "Bybit"
+                if resp.status_code == 200:
+                    data = resp.json()
+                    ticker = data['result']['list'][0]
+                    ref_bid = float(ticker['bid1Price'])
+                    ref_ask = float(ticker['ask1Price'])
+                    ref_mid = (ref_bid + ref_ask) / 2.0
+                else:
+                    return True, "Fallback OK", logs
+            else:
+                # BTC, SOL, SUI -> Leader mondial = Binance Futures
+                resp = requests.get(f"{self.binance_fapi_ticker_url}?symbol={sym_clean}USDT", timeout=2)
+                venue = "Binance"
+                if resp.status_code == 200:
+                    data = resp.json()
+                    ref_bid = float(data['bidPrice'])
+                    ref_ask = float(data['askPrice'])
+                    ref_mid = (ref_bid + ref_ask) / 2.0
+                else:
+                    return True, "Fallback OK", logs
+
+            dislocation_pct = ((hl_mid_px - ref_mid) / ref_mid) * 100.0
+
+            # Veto si divergence de flux toxique (> 0.25% de décalage défavorable)
+            if is_long and dislocation_pct > 0.25:
+                reason = f"Flux Toxique : Hyperliquid surévalué (+{dislocation_pct:.3f}%) par rapport à {venue} ({ref_mid:.4f}$)"
+                logs.append(AgentMessage(now_str, "BOGOTA", "VETO", reason))
+                return False, reason, logs
+            elif not is_long and dislocation_pct < -0.25:
+                reason = f"Flux Toxique : Hyperliquid sous-évalué ({dislocation_pct:.3f}%) par rapport à {venue} ({ref_mid:.4f}$)"
+                logs.append(AgentMessage(now_str, "BOGOTA", "VETO", reason))
+                return False, reason, logs
+
+            lead_status = "Aligné" if abs(dislocation_pct) < 0.05 else ("Premium HL" if dislocation_pct > 0 else "Discount HL")
+            decimals = 4 if ref_mid < 10.0 else 1
+            logs.append(AgentMessage(
+                now_str, "BOGOTA", "CLEARED",
+                f"Arbitrage Cross-Venue OK : {venue} {ref_mid:.{decimals}f}$ vs HL {hl_mid_px:.{decimals}f}$ (Delta: {dislocation_pct:+.3f}%, {lead_status})"
+            ))
+            return True, "Lead-lag validé", logs
+        except Exception as e:
+            logs.append(AgentMessage(now_str, "BOGOTA", "INFO", f"Flux externe indisponible ({e}), repli SMC autonome."))
+            return True, "Fallback OK", logs
+
+
 class ProfessorAgent:
     """LE PROFESSEUR (Router) : Coordonne la brigade d'agents et autorise l'ordre final."""
     def __init__(
@@ -303,12 +365,13 @@ class ProfessorAgent:
         self.sentinel = MacroSentinelBot()
         self.risk_mgr = RiskManager(current_balance=initial_balance)
 
-        # Brigade d'agents au complet (10 agents "GPTHeist")
+        # Brigade d'agents au complet (11 agents institutionnels)
         self.tokyo = TokyoAgent(self.smc)
         self.denver = DenverAgent()
         self.rio = RioAgent()
         self.berlin = BerlinAgent()
         self.nairobi = NairobiAgent(self.sentinel)
+        self.bogota = BogotaAgent()
         self.palermo = PalermoAgent()
         self.stockholm = StockholmAgent(self.risk_mgr)
         self.helsinki = HelsinkiAgent()
@@ -338,6 +401,7 @@ class ProfessorAgent:
             "HELSINKI": {"role": "LEDGER", "desc": "Grand livre & Breakeven", "status": "ACTIVE", "color": "#795548"},
             "NAIROBI": {"role": "BRIEFS", "desc": "Sentinelle Macro CPI/FOMC", "status": "CLEARED", "color": "#e91e63"},
             "BERLIN": {"role": "CONDITIONS", "desc": "OTE Fib 61.8%-79%", "status": "ACTIVE", "color": "#ff9800"},
+            "BOGOTA": {"role": "ARBITRAGE", "desc": "Lead-Lag Binance vs HL", "status": "ACTIVE", "color": "#e040fb"},
             "LISBON": {"role": "RECHECK", "desc": "Fraîcheur & ticket", "status": "ACTIVE", "color": "#00bcd4"}
         }
 
@@ -418,7 +482,16 @@ class ProfessorAgent:
             self.last_pipeline_result = res
             return res
 
-        # 6. PALERMO : Porte de VETO (Kill-Switch, Spread, Limites)
+        # 6. BOGOTA : Contrôle d'arbitrage Lead-Lag Cross-Exchange (Binance vs HL)
+        bogota_ok, bogota_reason, bogota_logs = self.bogota.check_lead_lag(self.symbol, setup.is_long, (best_bid + best_ask) / 2.0)
+        pipeline_messages.extend(bogota_logs)
+        if not bogota_ok:
+            self.activity_log.extend(pipeline_messages)
+            res = DeskPipelineResult(approved=False, setup=setup, veto_agent="BOGOTA", veto_reason=bogota_reason, messages=pipeline_messages)
+            self.last_pipeline_result = res
+            return res
+
+        # 7. PALERMO : Porte de VETO (Kill-Switch, Spread, Limites)
         palermo_ok, palermo_reason, palermo_logs = self.palermo.evaluate_veto(best_bid, best_ask)
         pipeline_messages.extend(palermo_logs)
         if not palermo_ok:
