@@ -73,4 +73,32 @@ def test_api_backtest_history():
     assert isinstance(data, list)
 
 
+def test_paper_trading_basket_endpoints():
+    # Test récupération des baskets
+    response = client.get("/api/paper-trading")
+    assert response.status_code == 200
+    data = response.json()
+    assert "baskets" in data
+    assert "alpha" in data["baskets"]
+    assert "quad" in data["baskets"]
+    assert "core" in data["baskets"]
+
+    # Test basculement sur 'quad'
+    switch_resp = client.post("/api/paper-trading/basket?basket=quad")
+    assert switch_resp.status_code == 200
+    switch_data = switch_resp.json()
+    assert switch_data["active_basket_key"] == "quad"
+    assert "BTC" in switch_data["symbols"]
+
+    # Test basculement sur 'core'
+    switch_resp2 = client.post("/api/paper-trading/basket?basket=core")
+    assert switch_resp2.status_code == 200
+    assert switch_resp2.json()["active_basket_key"] == "core"
+
+    # Test erreur sur panier inexistant
+    bad_resp = client.post("/api/paper-trading/basket?basket=unknown_basket")
+    assert bad_resp.status_code == 400
+
+
+
 

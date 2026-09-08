@@ -124,9 +124,63 @@
         </div>
     </div>
 
+    <!-- A/B Testing Multi-Paniers Banner -->
+    <div class="basket-ribbon" id="basket-ribbon">
+        <div class="basket-ribbon-title">
+            <span>🔬 A/B TESTING MULTI-PANIERS (SIMULATION LIVE PARALLÈLE) :</span>
+            <span class="basket-badge-live">3 SOUS-COMPTES DE 100$</span>
+        </div>
+        <div class="basket-cards-container" id="basket-cards-container">
+            <div class="basket-card active" id="card-basket-alpha" onclick="switchActiveBasket('alpha')">
+                <div class="basket-card-header">
+                    <span class="basket-tag champion">🏆 ALPHA DUO</span>
+                    <span class="basket-symbols">SOL + SUI</span>
+                </div>
+                <div class="basket-card-body">
+                    <span class="basket-balance" id="basket-alpha-bal">$100.00</span>
+                    <span class="basket-pnl positive" id="basket-alpha-pnl">+0.00$ (+0.0%)</span>
+                </div>
+                <div class="basket-card-footer">
+                    <span id="basket-alpha-trades">0 trade | WR: 0%</span>
+                    <span class="basket-status-dot scanning" id="basket-alpha-status">SCANNING</span>
+                </div>
+            </div>
+
+            <div class="basket-card" id="card-basket-quad" onclick="switchActiveBasket('quad')">
+                <div class="basket-card-header">
+                    <span class="basket-tag quad">🌐 QUAD BASKET</span>
+                    <span class="basket-symbols">BTC + SOL + MNT + SUI</span>
+                </div>
+                <div class="basket-card-body">
+                    <span class="basket-balance" id="basket-quad-bal">$100.00</span>
+                    <span class="basket-pnl positive" id="basket-quad-pnl">+0.00$ (+0.0%)</span>
+                </div>
+                <div class="basket-card-footer">
+                    <span id="basket-quad-trades">0 trade | WR: 0%</span>
+                    <span class="basket-status-dot scanning" id="basket-quad-status">SCANNING</span>
+                </div>
+            </div>
+
+            <div class="basket-card" id="card-basket-core" onclick="switchActiveBasket('core')">
+                <div class="basket-card-header">
+                    <span class="basket-tag core">🏛 CORE DUO</span>
+                    <span class="basket-symbols">BTC + SOL</span>
+                </div>
+                <div class="basket-card-body">
+                    <span class="basket-balance" id="basket-core-bal">$100.00</span>
+                    <span class="basket-pnl positive" id="basket-core-pnl">+0.00$ (+0.0%)</span>
+                </div>
+                <div class="basket-card-footer">
+                    <span id="basket-core-trades">0 trade | WR: 0%</span>
+                    <span class="basket-status-dot scanning" id="basket-core-status">SCANNING</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Main Workspace -->
     <div class="main-container">
+
         <!-- Main Column: Chart + Agent Deck -->
         <div class="chart-column">
             <!-- Playback Scrubber Bar -->

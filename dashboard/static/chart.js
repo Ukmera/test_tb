@@ -9,6 +9,8 @@ let trendlineSeries;
 let currentMode = "live"; // "live" ou "playback"
 let currentModel = "B";    // "A" (Scalp 1m) ou "B" (Structure MTF 5m)
 let currentTimeframe = "5m";
+let currentCoin = "SOL";    // Devise active visualisée sur le graphique (SOL pour Alpha Duo)
+let currentActiveBasket = "alpha"; // Panier A/B testing actif (alpha, quad, core)
 let allCandles = [];
 let allTrades = [];
 let currentPlaybackIndex = 0;
@@ -391,10 +393,11 @@ async function switchMode(mode) {
     }
 }
 
-async function loadLiveCandles(fit = false) {
+async function loadLiveCandles(fit = false, coinOverride = null) {
     if (currentMode !== "live") return;
+    const coin = coinOverride || currentCoin || "SOL";
     try {
-        const resp = await fetch(`/api/candles?coin=BTC&interval=${currentTimeframe}&limit=250`);
+        const resp = await fetch(`/api/candles?coin=${coin}&interval=${currentTimeframe}&limit=250`);
         const data = await resp.json();
 
         if (!data || !data.candles || !data.candles.length) return;
@@ -407,7 +410,7 @@ async function loadLiveCandles(fit = false) {
         // Mise à jour de l'overlay OHLC
         const last = data.candles[data.candles.length - 1];
         document.getElementById("overlay-ohlc").innerHTML = `
-            <strong>BTC/USDC</strong> <span style="color:#00d2ff; font-weight:700;">${currentTimeframe.toUpperCase()}</span> (Direct HL) &nbsp;|&nbsp; 
+            <strong>${coin}/USDC</strong> <span style="color:#00d2ff; font-weight:700;">${currentTimeframe.toUpperCase()}</span> (Direct HL) &nbsp;|&nbsp; 
             O: <span style="color:#d1d4dc">${last.open}</span> 
             H: <span style="color:#00e676">${last.high}</span> 
             L: <span style="color:#ff3d71">${last.low}</span> 
@@ -943,6 +946,10 @@ async function loadPaperTradingStatus() {
         const data = await resp.json();
         if (!data) return;
 
+        if (data.active_basket_key) {
+            currentActiveBasket = data.active_basket_key;
+        }
+
         // 1. Bouton toggle
         const btnToggle = document.getElementById("btn-toggle-paper");
         if (btnToggle) {
@@ -964,17 +971,63 @@ async function loadPaperTradingStatus() {
             sessionElem.style.color = data.session_allowed ? "#00e676" : "#ffb000";
         }
 
-        // 3. Position en direct (Header HUD)
+        // 3. Cartes A/B Testing Multi-Paniers
+        if (data.baskets) {
+            ["alpha", "quad", "core"].forEach(bKey => {
+                const bInfo = data.baskets[bKey];
+                if (!bInfo) return;
+
+                const card = document.getElementById(`card-basket-${bKey}`);
+                if (card) {
+                    if (bKey === currentActiveBasket) {
+                        card.classList.add("active");
+                    } else {
+                        card.classList.remove("active");
+                    }
+                }
+
+                const balElem = document.getElementById(`basket-${bKey}-bal`);
+                if (balElem) balElem.textContent = `$${bInfo.current_balance.toFixed(2)}`;
+
+                const pnlElem = document.getElementById(`basket-${bKey}-pnl`);
+                if (pnlElem) {
+                    const sign = bInfo.total_return_usd >= 0 ? "+" : "";
+                    pnlElem.textContent = `${sign}${bInfo.total_return_usd.toFixed(2)}$ (${sign}${bInfo.total_return_pct.toFixed(1)}%)`;
+                    pnlElem.className = `basket-pnl ${bInfo.total_return_usd >= 0 ? 'positive' : 'negative'}`;
+                }
+
+                const tradesElem = document.getElementById(`basket-${bKey}-trades`);
+                if (tradesElem) {
+                    tradesElem.textContent = `${bInfo.closed_trades_count} trade${bInfo.closed_trades_count > 1 ? 's' : ''} | WR: ${bInfo.win_rate_pct}%`;
+                }
+
+                const statusElem = document.getElementById(`basket-${bKey}-status`);
+                if (statusElem) {
+                    if (bInfo.active_position) {
+                        statusElem.textContent = `EN POS (${bInfo.active_position.symbol})`;
+                        statusElem.className = "basket-status-dot in_pos";
+                    } else if (bInfo.pending_orders && bInfo.pending_orders.length) {
+                        statusElem.textContent = `ORDRE (${bInfo.pending_orders[0].symbol})`;
+                        statusElem.className = "basket-status-dot order_pending";
+                    } else {
+                        statusElem.textContent = "SCANNING";
+                        statusElem.className = "basket-status-dot scanning";
+                    }
+                }
+            });
+        }
+
+        // 4. Position en direct (Header HUD)
         const posElem = document.getElementById("hud-live-position");
         if (posElem) {
             if (data.active_position) {
                 const pos = data.active_position;
                 const pnlSign = pos.unrealized_pnl >= 0 ? "+" : "";
-                posElem.textContent = `${pos.is_long ? 'LONG' : 'SHORT'} ${pos.size} BTC @ $${pos.entry_price} (${pnlSign}${pos.unrealized_pnl}$)`;
+                posElem.textContent = `${pos.is_long ? 'LONG' : 'SHORT'} ${pos.size} ${pos.symbol} @ $${pos.entry_price} (${pnlSign}${pos.unrealized_pnl}$)`;
                 posElem.style.color = pos.unrealized_pnl >= 0 ? "#00e676" : "#ff3d71";
             } else if (data.pending_orders && data.pending_orders.length) {
                 const ord = data.pending_orders[0];
-                posElem.textContent = `LIMITE ${ord.is_long ? 'BUY' : 'SELL'} @ $${ord.entry_price}`;
+                posElem.textContent = `LIMITE ${ord.is_long ? 'BUY' : 'SELL'} ${ord.symbol} @ $${ord.entry_price}`;
                 posElem.style.color = "#ffb000";
             } else {
                 posElem.textContent = "AUCUNE";
@@ -982,7 +1035,7 @@ async function loadPaperTradingStatus() {
             }
         }
 
-        // 4. Mettre à jour le solde et PnL si en mode Live
+        // 5. Mettre à jour le solde et PnL si en mode Live
         if (currentMode === "live") {
             const capElem = document.getElementById("live-capital");
             if (capElem && data.current_balance) {
@@ -995,13 +1048,33 @@ async function loadPaperTradingStatus() {
                 pnlElem.className = `hud-value ${data.total_return_usd >= 0 ? 'positive' : 'negative'}`;
             }
 
-            // 5. Afficher la position active ou les trades fermés dans l'onglet Exécutions
+            // 6. Afficher la position active ou les trades fermés dans l'onglet Exécutions
             renderLiveExecutions(data.active_position, data.closed_trades, data.pending_orders);
         }
     } catch (e) {
         console.error("Erreur loadPaperTradingStatus:", e);
     }
 }
+
+async function switchActiveBasket(basketKey) {
+    try {
+        const resp = await fetch(`/api/paper-trading/basket?basket=${basketKey}`, { method: "POST" });
+        const data = await resp.json();
+        if (data.status === "success") {
+            currentActiveBasket = data.active_basket_key;
+            if (data.symbols && data.symbols.length) {
+                currentCoin = data.symbols[0];
+            }
+            await loadPaperTradingStatus();
+            await loadAgentsStatus();
+            await loadLiveCandles(true, currentCoin);
+        }
+    } catch (e) {
+        console.error("Erreur switchActiveBasket:", e);
+    }
+}
+window.switchActiveBasket = switchActiveBasket;
+
 
 function renderLiveExecutions(activePos, closedTrades, pendingOrders) {
     const tradesListElem = document.getElementById("trades-list");

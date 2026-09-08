@@ -947,4 +947,147 @@ header {
   color: #fff;
 }
 
+/* ==========================================================================
+   A/B Testing Multi-Paniers Banner & Cards
+   ========================================================================== */
+.basket-ribbon {
+  display: flex;
+  flex-direction: column;
+  background: #141722;
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px 16px;
+  gap: 6px;
+}
+
+.basket-ribbon-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+}
+
+.basket-badge-live {
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--bull-green);
+  border: 1px solid rgba(0, 230, 118, 0.3);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.basket-cards-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.basket-card {
+  background: #1a1e2b;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.basket-card:hover {
+  background: #212636;
+  border-color: rgba(41, 98, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.basket-card.active {
+  background: #1e2436;
+  border-color: #2962ff;
+  box-shadow: 0 0 8px rgba(41, 98, 255, 0.3);
+}
+
+.basket-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.basket-tag {
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.basket-tag.champion {
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.basket-tag.quad {
+  background: rgba(0, 210, 255, 0.15);
+  color: #00d2ff;
+  border: 1px solid rgba(0, 210, 255, 0.4);
+}
+
+.basket-tag.core {
+  background: rgba(186, 104, 200, 0.15);
+  color: #ba68c8;
+  border: 1px solid rgba(186, 104, 200, 0.4);
+}
+
+.basket-symbols {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.basket-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.basket-balance {
+  font-size: 0.90rem;
+  font-weight: 800;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+}
+
+.basket-pnl {
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.basket-pnl.positive { color: var(--bull-green); }
+.basket-pnl.negative { color: var(--bear-red); }
+
+.basket-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.63rem;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 3px;
+}
+
+.basket-status-dot {
+  font-weight: 700;
+  font-size: 0.60rem;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.basket-status-dot.scanning { color: var(--text-muted); }
+.basket-status-dot.in_pos { background: rgba(0, 230, 118, 0.2); color: var(--bull-green); }
+.basket-status-dot.order_pending { background: rgba(255, 176, 0, 0.2); color: #ffb000; }
+
+
 

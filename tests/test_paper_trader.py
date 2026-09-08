@@ -58,3 +58,34 @@ def test_paper_trading_bracket_order_fill_and_tp():
     assert closed is not None
     assert closed["exit_reason"] in ("RUNNER_TRAIL", "TP")
     assert closed["pnl_usd"] > 0
+
+
+def test_multi_basket_isolation_and_switching():
+    daemon = PaperTradingDaemon(model="B", initial_capital=100.0)
+    state = daemon.get_state()
+
+    # Vérification des 3 paniers initialisés
+    assert "baskets" in state
+    assert len(state["baskets"]) == 3
+    assert set(state["baskets"].keys()) == {"alpha", "quad", "core"}
+    assert state["active_basket_key"] == "alpha"
+    assert state["baskets"]["alpha"]["symbols"] == ["SOL", "SUI"]
+    assert state["baskets"]["quad"]["symbols"] == ["BTC", "SOL", "MNT", "SUI"]
+    assert state["baskets"]["core"]["symbols"] == ["BTC", "SOL"]
+
+    # Basculement de panier actif
+    success = daemon.set_active_basket("quad")
+    assert success is True
+    assert daemon.active_basket_key == "quad"
+    assert daemon.active_basket.name == "Quad Basket (BTC + SOL + MNT + SUI)"
+
+    # Isolation des portefeuilles : modifier le solde de quad ne touche pas alpha ni core
+    daemon.baskets["quad"].current_balance = 125.50
+    assert daemon.baskets["alpha"].current_balance == 100.0
+    assert daemon.baskets["core"].current_balance == 100.0
+
+    state_quad = daemon.get_state()
+    assert state_quad["current_balance"] == 125.50
+    assert state_quad["baskets"]["quad"]["current_balance"] == 125.50
+    assert state_quad["baskets"]["alpha"]["current_balance"] == 100.0
+

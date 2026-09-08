@@ -82,6 +82,22 @@ def set_paper_trading_model(model: str = "B") -> Dict[str, Any]:
     return {"status": "success", "model": paper_trader.model, "interval": paper_trader.interval}
 
 
+@app.post("/api/paper-trading/basket")
+def set_paper_trading_basket(basket: str = "alpha") -> Dict[str, Any]:
+    """Change le panier actif visualisé dans le dashboard (alpha, quad, core)."""
+    b_key = basket.lower()
+    if b_key not in paper_trader.baskets:
+        raise HTTPException(status_code=400, detail=f"Panier invalide '{basket}'. Choix: {list(paper_trader.baskets.keys())}")
+    paper_trader.set_active_basket(b_key)
+    return {
+        "status": "success",
+        "active_basket_key": paper_trader.active_basket_key,
+        "active_basket_name": paper_trader.active_basket.name,
+        "symbols": paper_trader.active_basket.symbols
+    }
+
+
+
 @app.get("/api/agents")
 def get_agents_status() -> Dict[str, Any]:
     """Retourne l'état de la brigade d'agents, la porte de veto Palermo et le flux d'activité en temps réel."""
