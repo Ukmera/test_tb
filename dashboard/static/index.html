@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPTHEIST DESK | Hyperliquid SMC Quant Terminal</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- TradingView Lightweight Charts Library (Local & Offline Capable) -->
+    <script src="/static/lightweight-charts.standalone.js"></script>
+</head>
+<body>
+
+    <!-- Top Institutional Header -->
+    <header>
+        <div class="header-left">
+            <div class="logo-section">
+                <span class="logo-badge">GPTHEIST DESK</span>
+                <span class="logo-sub">HYPERLIQUID SMC</span>
+            </div>
+            <div id="live-indicator-badge" class="live-badge">
+                <span class="pulse-dot"></span>
+                <span>LIVE</span>
+            </div>
+        </div>
+
+        <div class="header-center-metrics">
+            <div class="hud-metric">
+                <span class="hud-label">MISSION CLOCK</span>
+                <span id="mission-clock-display" class="hud-value hud-mono">00:00:00</span>
+            </div>
+            <div class="hud-metric">
+                <span class="hud-label">CAPITAL DÉDIÉ (1% MAX)</span>
+                <span id="live-capital" class="hud-value">$100.00</span>
+            </div>
+            <div class="hud-metric">
+                <span class="hud-label">PRIX BTC (PERP)</span>
+                <span id="live-price" class="hud-value hud-accent">--</span>
+            </div>
+            <div class="hud-metric">
+                <span class="hud-label">SPREAD CARNET</span>
+                <span id="live-spread" class="hud-value">--</span>
+            </div>
+            <div class="hud-metric">
+                <span class="hud-label">POSITION DIRECT</span>
+                <span id="hud-live-position" class="hud-value hud-mono" style="color: #848e9c; font-size: 0.82rem;">AUCUNE</span>
+            </div>
+            <div class="hud-metric">
+                <span class="hud-label">PNL SIMULATION</span>
+                <span id="stat-pnl" class="hud-value positive">+0.00$ (+0.0%)</span>
+            </div>
+            <div class="hud-metric">
+                <span class="hud-label">BIAIS MACRO HTF</span>
+                <span id="hud-htf-bias" class="hud-value" style="color: #00e676; font-size: 0.82rem; font-weight: bold;">1H BULLISH 🟢</span>
+            </div>
+        </div>
+
+        <!-- Approval Gate Banner (Inspiré de GPTHeist) -->
+        <div class="approval-gate-container">
+            <div class="approval-gate-top">
+                <span class="gate-title">APPROVAL GATE</span>
+                <span id="gate-dot" class="gate-dot-cleared">●</span>
+            </div>
+            <div class="approval-gate-status">
+                <span id="gate-agent-name" class="gate-agent">PALERMO</span>
+                <span id="gate-status-text" class="gate-cleared">ENTRY CLEARED</span>
+            </div>
+            <div class="gate-bars-segment" id="gate-segments">
+                <div class="seg seg-cleared" title="Tokyo (Scout)"></div>
+                <div class="seg seg-cleared" title="Denver (Signals)"></div>
+                <div class="seg seg-cleared" title="Rio (Charts)"></div>
+                <div class="seg seg-cleared" title="Berlin (Conditions)"></div>
+                <div class="seg seg-cleared" title="Nairobi (Macro)"></div>
+                <div class="seg seg-cleared" title="Palermo (Veto)"></div>
+                <div class="seg seg-cleared" title="Stockholm (Sizing)"></div>
+                <div class="seg seg-cleared" title="Helsinki (Ledger)"></div>
+                <div class="seg seg-cleared" title="Lisbon (Recheck)"></div>
+                <div class="seg seg-cleared" title="Professor (Router)"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sub-Header: Contrôles de Navigation, Timeframes & Modèles SMC -->
+    <div class="control-ribbon">
+        <div class="ribbon-group">
+            <span class="ribbon-label">BOT :</span>
+            <button id="btn-toggle-paper" class="btn" style="color: #00e676; border-color: rgba(0, 230, 118, 0.4); font-weight: 700;">🟢 Paper Trading : ACTIF</button>
+            <span id="session-badge-text" style="font-size: 0.68rem; color: var(--text-muted); margin-left: 4px;">[08:00 - 20:00 UTC]</span>
+        </div>
+
+        <div class="ribbon-group">
+            <span class="ribbon-label">MODÈLE :</span>
+            <div class="model-switch-group">
+                <button id="btn-model-a" class="btn btn-model" data-model="A">⚡ Modèle A (Scalp 1m / Bias 1h)</button>
+                <button id="btn-model-b" class="btn btn-model active" data-model="B">🏛 Modèle B (Structure MTF 5m / Bias 1h)</button>
+            </div>
+        </div>
+
+        <div class="ribbon-group">
+            <span class="ribbon-label">TIMEFRAME :</span>
+            <div class="tf-group">
+                <button class="btn btn-tf" data-tf="1m">1m</button>
+                <button class="btn btn-tf" data-tf="3m">3m</button>
+                <button class="btn btn-tf active" data-tf="5m">5m</button>
+                <button class="btn btn-tf" data-tf="15m">15m</button>
+                <button class="btn btn-tf" data-tf="1h">1h</button>
+            </div>
+        </div>
+
+        <div class="ribbon-group">
+            <span class="ribbon-label">MODE :</span>
+            <div class="mode-switch-group">
+                <button id="btn-mode-live" class="btn btn-mode active">🔴 Direct Live</button>
+                <button id="btn-mode-playback" class="btn btn-mode">⏪ Playback Replay</button>
+            </div>
+        </div>
+
+        <div class="ribbon-actions" style="display: flex; align-items: center; gap: 8px;">
+            <select id="select-backtest-candles" class="btn" style="padding: 4px 8px; font-size: 0.76rem; background: #1a1e29; color: #00d2ff; border-color: rgba(0, 210, 255, 0.3);">
+                <option value="1000">1 000 bougies</option>
+                <option value="3000" selected>3 000 bougies (Stress-Test B)</option>
+                <option value="5000">5 000 bougies (Max)</option>
+            </select>
+            <button id="btn-run-backtest" class="btn btn-primary">⚡ Lancer Stress-Test</button>
+        </div>
+    </div>
+
+
+    <!-- Main Workspace -->
+    <div class="main-container">
+        <!-- Main Column: Chart + Agent Deck -->
+        <div class="chart-column">
+            <!-- Playback Scrubber Bar -->
+            <div id="playback-bar" class="playback-bar" style="display: none;">
+                <div class="playback-controls">
+                    <button id="btn-step-back" class="btn" title="Bougie précédente">⏮ -1</button>
+                    <button id="btn-play" class="btn btn-primary">▶ Playback</button>
+                    <button id="btn-step-fwd" class="btn" title="Bougie suivante">+1 ⏭</button>
+                    <select id="speed-select" class="btn" style="padding: 5px;">
+                        <option value="1">1x (Normal)</option>
+                        <option value="2">2x (Rapide)</option>
+                        <option value="5">5x (Vitesse)</option>
+                        <option value="10">10x (Accéléré)</option>
+                        <option value="25">25x (Turbo)</option>
+                        <option value="50">50x (Ultra)</option>
+                        <option value="100">100x (Instantané)</option>
+                    </select>
+                </div>
+                <div class="playback-range-controls" style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Période :</span>
+                    <select id="select-playback-range" class="btn" style="padding: 4px 6px; font-size: 0.76rem;">
+                        <option value="1">Dernières 24h</option>
+                        <option value="3">Derniers 3 jours</option>
+                        <option value="7" selected>Derniers 7 jours</option>
+                        <option value="14">Derniers 14 jours</option>
+                        <option value="30">Dernier mois</option>
+                        <option value="custom">Date précise...</option>
+                    </select>
+                    <input type="date" id="input-custom-date" class="btn" style="display: none; padding: 3px 6px; font-size: 0.76rem;">
+                </div>
+                <div class="timeline-container">
+                    <input type="range" id="timeline-scrubber" class="scrubber" min="0" max="100" value="0">
+                </div>
+                <div id="playback-time-label" class="playback-info">Simulation chargée</div>
+            </div>
+
+            <!-- Live Status Bar -->
+            <div id="live-status-bar" class="playback-bar">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="status-dot" style="background-color: #00e676; box-shadow: 0 0 8px #00e676;"></span>
+                    <span style="font-size: 0.82rem; font-weight: 600; color: #00e676;">STREAMING HL L2 CONNECTÉ</span>
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">(Actualisation automatique toutes les 3s)</span>
+                </div>
+                <div id="live-candle-info" class="playback-info">En attente de mise à jour...</div>
+            </div>
+
+            <!-- SMC Visual Validation Toolbar (Toggles des concepts institutionnels) -->
+            <div class="smc-validator-toolbar">
+                <span class="smc-toolbar-title">SMC LAYERS :</span>
+                <label class="smc-toggle-label" title="Order Blocks Bullish (vert) et Bearish (rouge)">
+                    <input type="checkbox" id="toggle-layer-ob" checked>
+                    <span class="smc-pill pill-ob">📦 Order Blocks</span>
+                </label>
+                <label class="smc-toggle-label" title="Fair Value Gaps avec 50% Consequent Encroachment">
+                    <input type="checkbox" id="toggle-layer-fvg" checked>
+                    <span class="smc-pill pill-fvg">⚡ FVGs (50% CE)</span>
+                </label>
+                <label class="smc-toggle-label" title="Swings majeurs et dynamique de Trendlines">
+                    <input type="checkbox" id="toggle-layer-swings" checked>
+                    <span class="smc-pill pill-swings">📐 Swings & Trendlines</span>
+                </label>
+                <label class="smc-toggle-label" title="Structure de marché : BOS (Continuation) & CHoCH (Retournement)">
+                    <input type="checkbox" id="toggle-layer-structure" checked>
+                    <span class="smc-pill pill-structure">🏷️ BOS / CHoCH</span>
+                </label>
+                <label class="smc-toggle-label" title="Consolidation : Range High, Range Low et Équilibre 50%">
+                    <input type="checkbox" id="toggle-layer-range" checked>
+                    <span class="smc-pill pill-range">⚖️ Range 50% Eq</span>
+                </label>
+                <label class="smc-toggle-label" title="Niveaux Fibonacci OTE (61.8%, 70.5% Sweet Spot, 79.0%)">
+                    <input type="checkbox" id="toggle-layer-ote" checked>
+                    <span class="smc-pill pill-ote">🎯 Fib OTE (70.5%)</span>
+                </label>
+                <label class="smc-toggle-label" title="Brackets d'exécution : Entry, SL, TP 2R et Breakeven BE">
+                    <input type="checkbox" id="toggle-layer-brackets" checked>
+                    <span class="smc-pill pill-brackets">🛡️ Brackets & BE</span>
+                </label>
+            </div>
+
+            <!-- Chart Canvas -->
+            <div class="chart-area">
+                <div id="overlay-ohlc" class="chart-overlay-info">
+                    <strong>BTC/USDC</strong> 15m &nbsp;|&nbsp; En attente des flux...
+                </div>
+
+                <!-- SMC Inspector HUD (Overlay mathématique interactif) -->
+                <div id="smc-inspector-hud" class="smc-inspector-card">
+                    <div class="inspector-header">
+                        <span style="font-weight: 700; color: #00d2ff;">🔍 SMC QUANT INSPECTOR</span>
+                        <span id="inspector-trend-badge" class="inspector-badge">BULLISH</span>
+                    </div>
+                    <div class="inspector-grid">
+                        <div class="inspector-item"><span class="lbl">ATR(14):</span> <span id="insp-atr" class="val">--</span></div>
+                        <div class="inspector-item"><span class="lbl">Range Eq:</span> <span id="insp-eq" class="val">--</span></div>
+                        <div class="inspector-item"><span class="lbl">OTE 70.5%:</span> <span id="insp-ote" class="val">--</span></div>
+                        <div class="inspector-item"><span class="lbl">OB Actifs:</span> <span id="insp-ob-count" class="val">--</span></div>
+                        <div class="inspector-item"><span class="lbl">FVG Actifs:</span> <span id="insp-fvg-count" class="val">--</span></div>
+                        <div class="inspector-item"><span class="lbl">Breakeven:</span> <span id="insp-be-status" class="val">--</span></div>
+                    </div>
+                </div>
+
+                <div id="trading-chart"></div>
+            </div>
+
+            <!-- Bottom Agent Deck ("Money Heist" Gallery) -->
+            <div class="agent-deck-container">
+                <div class="agent-deck-header">
+                    <span class="deck-title">// SQUAD PIPELINE & APPROVAL TEAM (10 ROLES)</span>
+                    <span id="agent-pipeline-status" class="deck-status">10 AGENTS SYNCHRONISÉS</span>
+                </div>
+                <div class="agent-deck-grid" id="agent-deck-cards">
+                    <!-- Cards will be populated by chart.js or rendered below -->
+                    <div class="agent-card" id="card-TOKYO">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">🔭</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">TOKYO</span>
+                                <span class="agent-role role-scout">SCOUT</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">BOS, CHoCH, OB & FVG</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+
+                    <div class="agent-card" id="card-PALERMO">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">🛡️</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">PALERMO</span>
+                                <span class="agent-role role-veto">VETO GATE</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">Spread < 0.04%, Max -2R</div>
+                        <div class="agent-status-tag status-cleared" id="tag-palermo">CLEARED</div>
+                    </div>
+
+                    <div class="agent-card" id="card-DENVER">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">⚡</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">DENVER</span>
+                                <span class="agent-role role-signal">SIGNALS</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">Displacement & Vol</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+
+                    <div class="agent-card" id="card-STOCKHOLM">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">⚖️</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">STOCKHOLM</span>
+                                <span class="agent-role role-liquidity">LIQUIDITY</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">1% Strict (0.3% / 0.7%)</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+
+                    <div class="agent-card" id="card-PROFESSOR">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">🧠</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">PROFESSOR</span>
+                                <span class="agent-role role-router">ROUTER</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">Master Orchestration</div>
+                        <div class="agent-status-tag status-router" id="tag-professor">STANDBY</div>
+                    </div>
+
+                    <div class="agent-card" id="card-RIO">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">📈</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">RIO</span>
+                                <span class="agent-role role-chart">CHARTS</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">Retest & Invalidation</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+
+                    <div class="agent-card" id="card-HELSINKI">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">📒</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">HELSINKI</span>
+                                <span class="agent-role role-ledger">LEDGER</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">Frais Net & Breakeven</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+
+                    <div class="agent-card" id="card-NAIROBI">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">📡</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">NAIROBI</span>
+                                <span class="agent-role role-macro">BRIEFS</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">CPI / FOMC / Macro</div>
+                        <div class="agent-status-tag status-cleared">CLEARED</div>
+                    </div>
+
+                    <div class="agent-card" id="card-BERLIN">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">📐</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">BERLIN</span>
+                                <span class="agent-role role-condition">CONDITIONS</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">OTE Fib 61.8% - 79%</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+
+                    <div class="agent-card" id="card-LISBON">
+                        <div class="agent-card-top">
+                            <span class="agent-avatar">🔍</span>
+                            <div class="agent-meta">
+                                <span class="agent-name">LISBON</span>
+                                <span class="agent-role role-recheck">RECHECK</span>
+                            </div>
+                        </div>
+                        <div class="agent-desc">Ticket Sanity & L2 Sync</div>
+                        <div class="agent-status-tag status-active">ACTIVE</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Activity Log, Executions & Backtest History -->
+        <div class="sidebar">
+            <div class="sidebar-tabs">
+                <button id="tab-btn-activity" class="sidebar-tab active">// ACTIVITY</button>
+                <button id="tab-btn-trades" class="sidebar-tab">// TRADES</button>
+                <button id="tab-btn-history" class="sidebar-tab">// BILANS HISTO</button>
+            </div>
+
+            <!-- Activity Log View -->
+            <div id="panel-activity-log" class="sidebar-panel active">
+                <div class="panel-header-info">
+                    <span id="log-count-label">FLUX D'APPROBATION EN DIRECT</span>
+                    <span class="stream-dot">●</span>
+                </div>
+                <div id="activity-log-stream" class="activity-stream">
+                    <!-- Chronological log entries injected here -->
+                    <div class="log-entry">
+                        <span class="log-time">--:--:--</span>
+                        <span class="log-agent log-prof">PROFESSOR</span>
+                        <span class="log-msg">Initialisation du desk multi-agents...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trades List View -->
+            <div id="panel-trades" class="sidebar-panel">
+                <div id="trades-list" class="trades-list">
+                    <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; margin-top: 20px;">
+                        Aucun trade pour l'instant.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backtest History Matrix View -->
+            <div id="panel-history" class="sidebar-panel">
+                <div class="panel-header-info">
+                    <span style="font-weight: 700; color: #00d2ff;">ARCHIVES & COMPARATIF</span>
+                    <button id="btn-refresh-history" class="btn" style="padding: 2px 6px; font-size: 0.7rem; border-color: rgba(0, 210, 255, 0.4);">🔄</button>
+                </div>
+                <div id="history-runs-list" class="history-runs-list">
+                    <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; margin-top: 20px;">
+                        Chargement des bilans...
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/chart.js"></script>
+</body>
+</html>
+
