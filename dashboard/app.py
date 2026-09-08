@@ -97,6 +97,13 @@ def set_paper_trading_basket(basket: str = "alpha") -> Dict[str, Any]:
     }
 
 
+@app.post("/api/paper-trading/reset")
+def reset_paper_trading() -> Dict[str, Any]:
+    """Réinitialise les portefeuilles de simulation à 100$ et efface l'historique persistant."""
+    return paper_trader.reset_state()
+
+
+
 
 @app.get("/api/agents")
 def get_agents_status() -> Dict[str, Any]:

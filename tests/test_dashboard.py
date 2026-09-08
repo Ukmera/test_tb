@@ -99,6 +99,13 @@ def test_paper_trading_basket_endpoints():
     bad_resp = client.post("/api/paper-trading/basket?basket=unknown_basket")
     assert bad_resp.status_code == 400
 
+    # Test réinitialisation
+    reset_resp = client.post("/api/paper-trading/reset")
+    assert reset_resp.status_code == 200
+    reset_data = reset_resp.json()
+    assert reset_data["baskets"]["alpha"]["current_balance"] == 100.0
+
+
 
 
 

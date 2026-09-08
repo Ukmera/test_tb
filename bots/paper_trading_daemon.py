@@ -1,5 +1,6 @@
 import time
 import sys
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -11,9 +12,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from config.settings import DEFAULT_SYMBOL, INITIAL_CAPITAL_USD
 from config.smc_params import ASIA_SESSION_RESTRICT_ENTRIES
-from core.data_feed import HyperliquidDataFeed
+from core.data_feed import HyperliquidDataFeed, CACHE_DIR
 from core.execution_engine import ExecutionEngine
 from bots.agents.desk_team import ProfessorAgent, DeskPipelineResult
+
+STATE_FILE = CACHE_DIR / "paper_trading_state.json"
 
 
 class PaperBasket:
@@ -103,11 +106,12 @@ class PaperBasket:
 
 class PaperTradingDaemon:
     """
-    Démon Autonome de Paper Trading en Temps Réel avec A/B Testing Multi-Paniers.
+    Démon Autonome de Paper Trading en Temps Réel avec A/B Testing Multi-Paniers et Persistance Disque.
     Fait tourner en parallèle 3 portefeuilles indépendants :
       1. Alpha Duo : SOL + SUI (Meilleure performance backtest +66.7%)
       2. Quad Basket : BTC + SOL + MNT + SUI (Diversification maximale & Bogota Arbitrage)
       3. Core Duo : BTC + SOL (Benchmark institutionnel de référence)
+    Sauvegarde automatiquement l'historique et les soldes pour résister aux redémarrages serveur.
     """
     def __init__(
         self,
@@ -115,7 +119,8 @@ class PaperTradingDaemon:
         symbols: Optional[List[str]] = None,
         model: str = "B",
         initial_capital: float = INITIAL_CAPITAL_USD,
-        session_filter: bool = ASIA_SESSION_RESTRICT_ENTRIES
+        session_filter: bool = ASIA_SESSION_RESTRICT_ENTRIES,
+        state_file: Optional[Path] = None
     ):
         self.initial_capital = initial_capital
         self.model = model.upper()
@@ -124,6 +129,7 @@ class PaperTradingDaemon:
         self.is_running = True
         self.data_feed = HyperliquidDataFeed()
         self.last_update_time: float = time.time()
+        self.state_file = state_file or STATE_FILE
 
         # Configuration des 3 portefeuilles parallèles (A/B Testing)
         self.baskets: Dict[str, PaperBasket] = {
@@ -156,6 +162,9 @@ class PaperTradingDaemon:
         # Symboles uniques à interroger sur le marché
         self.all_symbols: List[str] = sorted(list(set().union(*(b.symbols for b in self.baskets.values()))))
         self.current_market_prices: Dict[str, float] = {sym: 0.0 for sym in self.all_symbols}
+
+        # Restauration automatique de l'état persistant si disponible sur le disque
+        self.load_state(self.state_file)
 
     # =========================================================================
     # Propriétés de compatibilité ascendante (mappées sur le panier actif)
@@ -218,11 +227,110 @@ class PaperTradingDaemon:
         self.current_market_prices[self.symbol] = val
 
     def set_active_basket(self, basket_key: str) -> bool:
-        """Change le panier actif pour l'affichage dans le dashboard."""
+        """Change le panier actif pour l'affichage dans le dashboard et sauvegarde l'état."""
         if basket_key in self.baskets:
             self.active_basket_key = basket_key
+            self.save_state(self.state_file)
             return True
         return False
+
+    # =========================================================================
+    # Persistance Disque & Auto-Save
+    # =========================================================================
+    def save_state(self, file_path: Optional[Path] = None) -> bool:
+        """Sauvegarde l'état complet des 3 portefeuilles de façon atomique sur le disque."""
+        target = file_path or self.state_file
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "version": 1,
+                "saved_at": time.time(),
+                "saved_str": datetime.now(timezone.utc).isoformat(),
+                "active_basket_key": self.active_basket_key,
+                "baskets": {}
+            }
+            for k, b in self.baskets.items():
+                data["baskets"][k] = {
+                    "key": b.key,
+                    "name": b.name,
+                    "symbols": b.symbols,
+                    "current_balance": round(b.current_balance, 2),
+                    "initial_capital": b.initial_capital,
+                    "closed_trades": b.closed_trades,
+                    "active_position": b.execution.active_position,
+                    "active_orders": b.execution.active_orders
+                }
+            tmp = target.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            tmp.replace(target)
+            return True
+        except Exception as e:
+            print(f"[Paper Trading Daemon] Erreur sauvegarde état: {e}")
+            return False
+
+    def load_state(self, file_path: Optional[Path] = None) -> bool:
+        """Restaure les soldes, l'historique et les positions ouvertes depuis le disque."""
+        target = file_path or self.state_file
+        if not target.exists():
+            return False
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            saved_baskets = data.get("baskets", {})
+            for k, b in self.baskets.items():
+                if k in saved_baskets:
+                    b_info = saved_baskets[k]
+                    b.current_balance = float(b_info.get("current_balance", b.initial_capital))
+                    b.closed_trades = b_info.get("closed_trades", [])
+
+                    # Synchroniser le solde sur les agents professeurs de ce panier
+                    for p in b.professors.values():
+                        p.balance = b.current_balance
+                        p.risk_mgr.update_balance(b.current_balance)
+
+                    # Restaurer la position active si présente
+                    pos = b_info.get("active_position")
+                    if pos:
+                        b.execution.active_position = pos
+
+                    # Restaurer les ordres actifs
+                    orders = b_info.get("active_orders")
+                    if orders and isinstance(orders, dict):
+                        b.execution.active_orders = orders
+
+            saved_key = data.get("active_basket_key")
+            if saved_key and saved_key in self.baskets:
+                self.active_basket_key = saved_key
+
+            print(f"[Paper Trading Daemon] État persistant restauré depuis {target.name}")
+            return True
+        except Exception as e:
+            print(f"[Paper Trading Daemon] Erreur chargement état persistant: {e}")
+            return False
+
+    def reset_state(self, file_path: Optional[Path] = None) -> Dict[str, Any]:
+        """Réinitialise tous les portefeuilles à 100$ et efface les données sauvegardées."""
+        for b in self.baskets.values():
+            b.current_balance = b.initial_capital
+            b.closed_trades = []
+            b.execution.active_position = None
+            b.execution.active_orders.clear()
+            for p in b.professors.values():
+                p.balance = b.initial_capital
+                p.risk_mgr.update_balance(b.initial_capital)
+                p.palermo.consecutive_losses = 0
+                p.palermo.daily_realized_r = 0.0
+                p.palermo.is_halted = False
+        target = file_path or self.state_file
+        if target.exists():
+            try:
+                target.unlink()
+            except Exception:
+                pass
+        self.save_state(file_path=target)
+        return self.get_state()
 
     def check_session_window(self) -> Tuple[bool, str]:
         """
@@ -241,8 +349,10 @@ class PaperTradingDaemon:
         """
         Exécute un cycle de surveillance parallèle sur l'ensemble des 3 paniers.
         Les carnets d'ordres sont interrogés une seule fois par symbole pour une efficacité maximale.
+        Auto-save automatique sur disque en cas d'événement de trading.
         """
         self.last_update_time = time.time()
+        state_changed = False
 
         # 1. Mise à jour des cours de marché pour chaque symbole unique
         for sym in self.all_symbols:
@@ -275,6 +385,7 @@ class PaperTradingDaemon:
                         closed_trade["closed_balance"] = round(basket.current_balance, 2)
                         closed_trade["r_multiple"] = r_multiple
                         basket.closed_trades.append(closed_trade)
+                        state_changed = True
 
                         now_str = time.strftime("%H:%M:%S")
                         if pos_sym in basket.professors:
@@ -288,7 +399,9 @@ class PaperTradingDaemon:
                             )
 
             # Nettoyage des ordres limites expirés (> 3 min)
-            basket.execution.cancel_stale_orders()
+            canceled_count = basket.execution.cancel_stale_orders()
+            if canceled_count > 0:
+                state_changed = True
 
             # Si ce panier a déjà une position ou un ordre actif, ou si session fermée, ne pas chercher d'entrée
             if basket.execution.active_orders or basket.execution.active_position or not session_allowed:
@@ -319,7 +432,11 @@ class PaperTradingDaemon:
                     pipeline_result: DeskPipelineResult = basket.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
                     if pipeline_result.approved and pipeline_result.proposal:
                         basket.execution.place_bracket_order(pipeline_result.proposal)
+                        state_changed = True
                         break  # Un ordre placé pour ce panier à ce cycle
+
+        if state_changed:
+            self.save_state(self.state_file)
 
         return self.get_state()
 
@@ -350,6 +467,7 @@ class PaperTradingDaemon:
             "total_return_pct": round(((active_b.current_balance - active_b.initial_capital) / active_b.initial_capital) * 100, 2),
             "active_position": active_b.get_active_position_data(self.current_market_prices),
             "pending_orders": list(active_b.execution.active_orders.values()),
+            "closed_trades": active_b.closed_trades,
             "closed_trades_count": len(active_b.closed_trades),
             "win_rate_pct": active_b.get_win_rate(),
             "session_allowed": session_allowed,

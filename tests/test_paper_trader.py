@@ -4,8 +4,8 @@ from bots.paper_trading_daemon import PaperTradingDaemon
 from core.risk_manager import TradeOrderProposal
 
 
-def test_paper_trading_daemon_initialization():
-    daemon = PaperTradingDaemon(symbol="BTC", model="B", initial_capital=100.0)
+def test_paper_trading_daemon_initialization(tmp_path):
+    daemon = PaperTradingDaemon(symbol="BTC", model="B", initial_capital=100.0, state_file=tmp_path / "init.json")
     state = daemon.get_state()
     assert state["is_running"] is True
     assert state["model"] == "B"
@@ -15,10 +15,11 @@ def test_paper_trading_daemon_initialization():
     assert state["pending_orders"] == []
 
 
-def test_paper_trading_bracket_order_fill_and_tp():
-    daemon = PaperTradingDaemon(symbol="BTC", model="B", initial_capital=100.0)
+def test_paper_trading_bracket_order_fill_and_tp(tmp_path):
+    daemon = PaperTradingDaemon(symbol="BTC", model="B", initial_capital=100.0, state_file=tmp_path / "fill.json")
     # Désactiver filtre de session pour le test
     daemon.session_filter_enabled = False
+
 
     # 1. Placer un ordre Long fictif
     proposal = TradeOrderProposal(
@@ -60,9 +61,10 @@ def test_paper_trading_bracket_order_fill_and_tp():
     assert closed["pnl_usd"] > 0
 
 
-def test_multi_basket_isolation_and_switching():
-    daemon = PaperTradingDaemon(model="B", initial_capital=100.0)
+def test_multi_basket_isolation_and_switching(tmp_path):
+    daemon = PaperTradingDaemon(model="B", initial_capital=100.0, state_file=tmp_path / "multi_iso.json")
     state = daemon.get_state()
+
 
     # Vérification des 3 paniers initialisés
     assert "baskets" in state
@@ -88,4 +90,37 @@ def test_multi_basket_isolation_and_switching():
     assert state_quad["current_balance"] == 125.50
     assert state_quad["baskets"]["quad"]["current_balance"] == 125.50
     assert state_quad["baskets"]["alpha"]["current_balance"] == 100.0
+
+
+def test_paper_trading_persistence_save_load_and_reset(tmp_path):
+    test_state_file = tmp_path / "test_paper_state.json"
+
+    # 1. Créer une instance initiale et simuler des gains
+    daemon = PaperTradingDaemon(model="B", initial_capital=100.0, state_file=test_state_file)
+    daemon.baskets["alpha"].current_balance = 118.50
+    daemon.baskets["alpha"].closed_trades.append({
+        "order_id": "TEST_1",
+        "symbol": "SOL",
+        "pnl_usd": 18.50,
+        "exit_reason": "TP"
+    })
+    daemon.set_active_basket("quad")
+    daemon.save_state(test_state_file)
+
+    assert test_state_file.exists()
+
+    # 2. Créer une nouvelle instance (simulant un redémarrage du serveur)
+    daemon_restarted = PaperTradingDaemon(model="B", initial_capital=100.0, state_file=test_state_file)
+
+    # Vérifier que l'état a été restauré fidèlement
+    assert daemon_restarted.active_basket_key == "quad"
+    assert daemon_restarted.baskets["alpha"].current_balance == 118.50
+    assert len(daemon_restarted.baskets["alpha"].closed_trades) == 1
+    assert daemon_restarted.baskets["alpha"].closed_trades[0]["pnl_usd"] == 18.50
+
+    # 3. Tester la réinitialisation
+    reset_state = daemon_restarted.reset_state(test_state_file)
+    assert reset_state["baskets"]["alpha"]["current_balance"] == 100.0
+    assert len(daemon_restarted.baskets["alpha"].closed_trades) == 0
+
 
