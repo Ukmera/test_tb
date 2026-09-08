@@ -229,7 +229,68 @@ header {
   box-shadow: 0 0 4px rgba(255, 61, 113, 0.4);
 }
 
-/* Control Ribbon (Timeframe, Model Switch, Modes) */
+/* Top Institutional View Switcher */
+.top-view-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  background: #0f131d;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.view-tab-btn {
+  background: #171b26;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-tab-btn:hover {
+  background: #202636;
+  color: #fff;
+}
+
+.view-tab-btn.active {
+  background: #2962ff;
+  border-color: #00d2ff;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(41, 98, 255, 0.4);
+}
+
+.btn-fullscreen {
+  background: rgba(0, 210, 255, 0.12);
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  color: #00d2ff;
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-fullscreen:hover {
+  background: rgba(0, 210, 255, 0.25);
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+}
+
+/* Control Ribbon (Timeframe & Active Context) */
 .control-ribbon {
   display: flex;
   justify-content: space-between;
@@ -301,6 +362,31 @@ header {
   flex-direction: column;
   border-right: 1px solid var(--border-color);
   overflow: hidden;
+  position: relative;
+}
+
+.chart-column.fullscreen-mode {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  background: #0d1117 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+.chart-column.fullscreen-mode .chart-area {
+  min-height: 0 !important;
+  height: calc(100vh - 44px) !important;
+}
+
+.chart-column.fullscreen-mode .agent-deck-container {
+  display: none !important;
 }
 
 /* Playback Control Bar */
@@ -396,7 +482,7 @@ header {
 .chart-area {
   flex: 1;
   position: relative;
-  min-height: 380px;
+  min-height: 520px;
   background-color: #131722;
 }
 
@@ -816,18 +902,23 @@ header {
 }
 
 .smc-inspector-card {
+  display: none;
   position: absolute;
-  top: 36px;
+  top: 40px;
   right: 14px;
-  z-index: 10;
-  background: rgba(15, 19, 28, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 210, 255, 0.25);
+  z-index: 20;
+  background: rgba(15, 19, 28, 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 210, 255, 0.4);
   border-radius: 6px;
   padding: 8px 12px;
   width: 220px;
-  pointer-events: none;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+}
+
+.smc-inspector-card.active {
+  display: block;
 }
 
 .inspector-header {

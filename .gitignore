@@ -9,3 +9,4 @@ venv/
 Thumbs.db
 data_cache/
 *.log
+.env

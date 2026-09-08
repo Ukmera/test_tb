@@ -261,23 +261,86 @@ function setupEventListeners() {
         }
     });
 
-    // 4. Boutons de Timeframe (1m, 5m, 15m, 1h)
+    // 4. Boutons de Timeframe (1m, 3m, 5m, 15m, 1h)
     document.querySelectorAll(".btn-tf").forEach(btn => {
         btn.addEventListener("click", async (e) => {
+            const targetBtn = e.currentTarget || btn;
             document.querySelectorAll(".btn-tf").forEach(b => b.classList.remove("active"));
-            e.target.classList.add("active");
-            currentTimeframe = e.target.getAttribute("data-tf");
+            targetBtn.classList.add("active");
+            currentTimeframe = targetBtn.getAttribute("data-tf") || "5m";
             console.log(`[Timeframe Switch] Passage en ${currentTimeframe}`);
             
             if (currentMode === "live") {
                 await loadLiveCandles(true);
             } else {
-                // En mode playback, relancer un backtest sur ce timeframe
                 const btnRun = document.getElementById("btn-run-backtest");
                 if (btnRun) btnRun.click();
             }
         });
     });
+
+    // 4b. Sélecteur de vues institutionnelles (Paper Trading, Live, Backtest, Agents)
+    document.querySelectorAll(".view-tab-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const targetBtn = e.currentTarget || btn;
+            const view = targetBtn.getAttribute("data-view");
+            if (view) switchMainView(view);
+        });
+    });
+
+    // 4c. Mode Plein Écran pour le graphique TradingView
+    const btnFullscreen = document.getElementById("btn-fullscreen-chart");
+    const chartCol = document.querySelector(".chart-column");
+    if (btnFullscreen && chartCol) {
+        btnFullscreen.addEventListener("click", () => {
+            chartCol.classList.toggle("fullscreen-mode");
+            const isFs = chartCol.classList.contains("fullscreen-mode");
+            btnFullscreen.textContent = isFs ? "✕ Quitter Plein Écran" : "⛶ Plein Écran";
+            if (chart) {
+                const chartContainer = document.getElementById("trading-chart");
+                setTimeout(() => {
+                    chart.applyOptions({
+                        width: chartContainer.clientWidth,
+                        height: chartContainer.clientHeight,
+                    });
+                    if (chart.timeScale) chart.timeScale().fitContent();
+                }, 100);
+            }
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && chartCol.classList.contains("fullscreen-mode")) {
+                chartCol.classList.remove("fullscreen-mode");
+                btnFullscreen.textContent = "⛶ Plein Écran";
+                if (chart) {
+                    const chartContainer = document.getElementById("trading-chart");
+                    setTimeout(() => {
+                        chart.applyOptions({
+                            width: chartContainer.clientWidth,
+                            height: chartContainer.clientHeight,
+                        });
+                        if (chart.timeScale) chart.timeScale().fitContent();
+                    }, 100);
+                }
+            }
+        });
+    }
+
+    // 4d. Toggle de l'Inspecteur SMC Quant (Masqué par défaut)
+    const toggleInsp = document.getElementById("toggle-layer-inspector");
+    const hudInsp = document.getElementById("smc-inspector-hud");
+    const btnCloseInsp = document.getElementById("btn-close-inspector");
+    if (toggleInsp && hudInsp) {
+        toggleInsp.addEventListener("change", (e) => {
+            hudInsp.style.display = e.target.checked ? "block" : "none";
+        });
+    }
+    if (btnCloseInsp && hudInsp && toggleInsp) {
+        btnCloseInsp.addEventListener("click", () => {
+            hudInsp.style.display = "none";
+            toggleInsp.checked = false;
+        });
+    }
 
     // 5. Contrôles Playback
     const btnPlay = document.getElementById("btn-play");
@@ -384,8 +447,8 @@ async function switchMode(mode) {
     const liveStatusBar = document.getElementById("live-status-bar");
 
     if (mode === "live") {
-        btnLive.classList.add("active");
-        btnPlayback.classList.remove("active");
+        if (btnLive) btnLive.classList.add("active");
+        if (btnPlayback) btnPlayback.classList.remove("active");
         if (playbackBar) playbackBar.style.display = "none";
         if (liveStatusBar) liveStatusBar.style.display = "flex";
 
@@ -397,8 +460,8 @@ async function switchMode(mode) {
             liveTimer = setInterval(loadLiveCandles, 3000);
         }
     } else {
-        btnPlayback.classList.add("active");
-        btnLive.classList.remove("active");
+        if (btnPlayback) btnPlayback.classList.add("active");
+        if (btnLive) btnLive.classList.remove("active");
         if (playbackBar) playbackBar.style.display = "flex";
         if (liveStatusBar) liveStatusBar.style.display = "none";
 
@@ -410,6 +473,79 @@ async function switchMode(mode) {
         await loadBacktestForPlayback();
     }
 }
+
+async function switchMainView(view) {
+    currentActiveView = view;
+    document.querySelectorAll(".view-tab-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-view") === view);
+    });
+
+    const basketRibbon = document.getElementById("basket-ribbon");
+    const playbackBar = document.getElementById("playback-bar");
+    const backtestActions = document.getElementById("ribbon-backtest-actions");
+    const liveStatusBar = document.getElementById("live-status-bar");
+    const chartCol = document.querySelector(".chart-column");
+    const sidebar = document.querySelector(".sidebar");
+    const agentDeck = document.getElementById("agent-deck-container");
+
+    if (view === "paper") {
+        if (basketRibbon) basketRibbon.style.display = "flex";
+        if (playbackBar) playbackBar.style.display = "none";
+        if (backtestActions) backtestActions.style.display = "none";
+        if (liveStatusBar) liveStatusBar.style.display = "flex";
+        if (chartCol) chartCol.style.display = "flex";
+        if (sidebar) sidebar.style.display = "flex";
+        if (agentDeck) agentDeck.style.display = "flex";
+        await switchMode("live");
+    } else if (view === "live") {
+        if (basketRibbon) basketRibbon.style.display = "none";
+        if (playbackBar) playbackBar.style.display = "none";
+        if (backtestActions) backtestActions.style.display = "none";
+        if (liveStatusBar) liveStatusBar.style.display = "flex";
+        if (chartCol) chartCol.style.display = "flex";
+        if (sidebar) sidebar.style.display = "flex";
+        if (agentDeck) agentDeck.style.display = "flex";
+        await switchMode("live");
+    } else if (view === "backtest") {
+        if (basketRibbon) basketRibbon.style.display = "none";
+        if (playbackBar) playbackBar.style.display = "flex";
+        if (backtestActions) backtestActions.style.display = "flex";
+        if (liveStatusBar) liveStatusBar.style.display = "none";
+        if (chartCol) chartCol.style.display = "flex";
+        if (sidebar) sidebar.style.display = "flex";
+        if (agentDeck) agentDeck.style.display = "none";
+        const tabHist = document.getElementById("tab-btn-history");
+        if (tabHist) tabHist.click();
+        await switchMode("playback");
+    } else if (view === "agents") {
+        if (basketRibbon) basketRibbon.style.display = "none";
+        if (playbackBar) playbackBar.style.display = "none";
+        if (backtestActions) backtestActions.style.display = "none";
+        if (chartCol) chartCol.style.display = "flex";
+        if (sidebar) sidebar.style.display = "flex";
+        if (agentDeck) {
+            agentDeck.style.display = "flex";
+            agentDeck.classList.remove("collapsed");
+            agentDeck.scrollIntoView({ behavior: "smooth" });
+        }
+        const tabAct = document.getElementById("tab-btn-activity");
+        if (tabAct) tabAct.click();
+    }
+
+    setTimeout(() => {
+        if (chart) {
+            const chartContainer = document.getElementById("trading-chart");
+            if (chartContainer) {
+                chart.applyOptions({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight,
+                });
+                if (chart.timeScale) chart.timeScale().fitContent();
+            }
+        }
+    }, 100);
+}
+window.switchMainView = switchMainView;
 
 async function loadLiveCandles(fit = false, coinOverride = null) {
     if (currentMode !== "live") return;
@@ -435,6 +571,9 @@ async function loadLiveCandles(fit = false, coinOverride = null) {
             C: <span style="color:#d1d4dc">${last.close}</span> &nbsp;|&nbsp;
             Biais: <span style="color:${data.smc.trend === 'BULLISH' ? '#00e676' : (data.smc.trend === 'BEARISH' ? '#ff3d71' : '#848e9c')}">${data.smc.trend}</span>
         `;
+
+        const badgeSym = document.getElementById("badge-active-symbol");
+        if (badgeSym) badgeSym.textContent = coin;
 
         // Mise à jour du biais HTF dans le Header HUD
         const htfElem = document.getElementById("hud-htf-bias");
@@ -555,11 +694,22 @@ function renderSMCLayers(smcData, activeTrade = null) {
                 });
 
                 if (trendlineSeries) {
-                    const sortedSwings = [...smc.swings].sort((a, b) => a.time - b.time).map(s => ({
-                        time: s.time,
-                        value: s.price
-                    }));
-                    trendlineSeries.setData(sortedSwings);
+                    const uniqueSwings = [];
+                    const seenTimes = new Set();
+                    [...smc.swings].sort((a, b) => a.time - b.time).forEach(s => {
+                        if (s && typeof s.time === "number" && !seenTimes.has(s.time)) {
+                            seenTimes.add(s.time);
+                            uniqueSwings.push({
+                                time: s.time,
+                                value: s.price
+                            });
+                        }
+                    });
+                    try {
+                        trendlineSeries.setData(uniqueSwings);
+                    } catch (err) {
+                        console.warn("Trendline setData error:", err);
+                    }
                 }
             } else {
                 if (trendlineSeries) trendlineSeries.setData([]);
@@ -717,8 +867,25 @@ function renderSMCLayers(smcData, activeTrade = null) {
         }
     }
 
-    markers.sort((a, b) => a.time - b.time);
-    candleSeries.setMarkers(markers);
+    // Nettoyage et tri strict des markers pour Lightweight Charts
+    const cleanMarkers = [];
+    const seenMarkerKeys = new Set();
+    markers.sort((a, b) => a.time - b.time).forEach(m => {
+        if (m && typeof m.time === "number" && !isNaN(m.time)) {
+            const key = `${m.time}_${m.text || ''}`;
+            if (!seenMarkerKeys.has(key)) {
+                seenMarkerKeys.add(key);
+                cleanMarkers.push(m);
+            }
+        }
+    });
+
+    try {
+        candleSeries.setMarkers(cleanMarkers);
+    } catch (e) {
+        console.warn("[Chart Warning] setMarkers error:", e);
+    }
+
     updateSMCInspector(smc, trade);
 }
 

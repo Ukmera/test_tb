@@ -32,13 +32,19 @@ class PaperBasket:
         name: str,
         symbols: List[str],
         initial_capital: float = INITIAL_CAPITAL_USD,
-        model: str = "B"
+        model: str = "B",
+        interval: Optional[str] = None,
+        htf_interval: Optional[str] = None
     ):
         self.key = key
         self.name = name
         self.symbols = symbols
         self.model = model.upper()
-        self.interval = "1m" if self.model == "A" else "5m"
+        if interval:
+            self.interval = interval
+        else:
+            self.interval = "1m" if self.model == "A" else "5m"
+        self.htf_interval = htf_interval or ("15m" if self.interval == "1m" else ("4h" if self.interval in ["15m", "30m"] else "1h"))
         self.initial_capital = initial_capital
         self.current_balance = initial_capital
         self.execution = ExecutionEngine()
@@ -133,28 +139,34 @@ class PaperTradingDaemon:
         self.last_update_time: float = time.time()
         self.state_file = state_file or STATE_FILE
 
-        # Configuration des 3 portefeuilles parallèles (A/B Testing)
+        # Configuration des 3 portefeuilles parallèles (A/B Testing Multi-Stratégies)
         self.baskets: Dict[str, PaperBasket] = {
             "alpha": PaperBasket(
                 key="alpha",
                 name="Alpha Duo (SOL + SUI)",
                 symbols=["SOL", "SUI"],
                 initial_capital=initial_capital,
-                model=self.model
+                model="A",
+                interval="1m",
+                htf_interval="15m"
             ),
             "quad": PaperBasket(
                 key="quad",
                 name="Quad Basket (BTC + SOL + MNT + SUI)",
                 symbols=["BTC", "SOL", "MNT", "SUI"],
                 initial_capital=initial_capital,
-                model=self.model
+                model="B",
+                interval="5m",
+                htf_interval="1h"
             ),
             "core": PaperBasket(
                 key="core",
                 name="Core Duo (BTC + SOL)",
                 symbols=["BTC", "SOL"],
                 initial_capital=initial_capital,
-                model=self.model
+                model="B",
+                interval="15m",
+                htf_interval="4h"
             )
         }
 
@@ -437,7 +449,7 @@ class PaperTradingDaemon:
                 if best_bid <= 0 or best_ask <= 0:
                     continue
 
-                htf_df = self.data_feed.fetch_candles(sym, interval="1h", limit_candles=50)
+                htf_df = self.data_feed.fetch_candles(sym, interval=basket.htf_interval, limit_candles=50)
                 df = self.data_feed.fetch_candles(sym, interval=basket.interval, limit_candles=80)
                 if df.empty or len(df) < 30:
                     continue
