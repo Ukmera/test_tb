@@ -21,30 +21,27 @@ STATE_FILE = CACHE_DIR / "paper_trading_state.json"
 
 
 
-class PaperBasket:
+class PaperStrategyTrack:
     """
-    Portefeuille de Paper Trading isolé pour l'A/B Testing en direct.
-    Gère son propre capital, ses positions, ses ordres et son historique de trades.
+    Sous-portefeuille de stratégie isolé (Scalp M1/M3, Intraday M5, ou Day M15) au sein d'un panier d'actifs.
+    Capital dédié indépendant (100$), positions et métriques autonomes.
     """
     def __init__(
         self,
-        key: str,
+        strategy_id: str,
         name: str,
         symbols: List[str],
-        initial_capital: float = INITIAL_CAPITAL_USD,
+        interval: str,
+        htf_interval: str,
         model: str = "B",
-        interval: Optional[str] = None,
-        htf_interval: Optional[str] = None
+        initial_capital: float = INITIAL_CAPITAL_USD
     ):
-        self.key = key
+        self.strategy_id = strategy_id
         self.name = name
         self.symbols = symbols
+        self.interval = interval
+        self.htf_interval = htf_interval
         self.model = model.upper()
-        if interval:
-            self.interval = interval
-        else:
-            self.interval = "1m" if self.model == "A" else "5m"
-        self.htf_interval = htf_interval or ("15m" if self.interval == "1m" else ("4h" if self.interval in ["15m", "30m"] else "1h"))
         self.initial_capital = initial_capital
         self.current_balance = initial_capital
         self.execution = ExecutionEngine()
@@ -92,15 +89,16 @@ class PaperBasket:
         }
 
     def get_summary(self, market_prices: Dict[str, float]) -> Dict[str, Any]:
-        """Retourne le résumé complet des métriques du portefeuille."""
         ret_usd = round(self.current_balance - self.initial_capital, 2)
         ret_pct = round((ret_usd / self.initial_capital) * 100, 2)
         pos = self.get_active_position_data(market_prices)
 
         return {
-            "key": self.key,
+            "strategy_id": self.strategy_id,
             "name": self.name,
-            "symbols": self.symbols,
+            "interval": self.interval,
+            "htf_interval": self.htf_interval,
+            "model": self.model,
             "current_balance": round(self.current_balance, 2),
             "initial_capital": self.initial_capital,
             "total_return_usd": ret_usd,
@@ -110,6 +108,145 @@ class PaperBasket:
             "active_position": pos,
             "pending_orders": list(self.execution.active_orders.values())
         }
+
+
+class PaperBasket:
+    """
+    Portefeuille de Paper Trading isolé pour l'A/B Testing en direct.
+    Gère son propre capital, ses positions, ses ordres et son historique de trades.
+    Exécute en parallèle 3 stratégies indépendantes (Scalp, Intraday, Day Trading).
+    """
+    def __init__(
+        self,
+        key: str,
+        name: str,
+        symbols: List[str],
+        initial_capital: float = INITIAL_CAPITAL_USD,
+        model: str = "B",
+        interval: Optional[str] = None,
+        htf_interval: Optional[str] = None
+    ):
+        self.key = key
+        self.name = name
+        self.symbols = symbols
+        self.initial_capital = initial_capital
+
+        scalp_int = "3m" if key == "quad" else "1m"
+        scalp_htf = "30m" if key == "quad" else "15m"
+
+        self.strategies: Dict[str, PaperStrategyTrack] = {
+            "scalp": PaperStrategyTrack(
+                strategy_id="scalp",
+                name=f"Scalp Ultra-Court ({scalp_int})",
+                symbols=symbols,
+                interval=scalp_int,
+                htf_interval=scalp_htf,
+                model="A",
+                initial_capital=initial_capital
+            ),
+            "intraday": PaperStrategyTrack(
+                strategy_id="intraday",
+                name="Intraday Structure (5m)",
+                symbols=symbols,
+                interval="5m",
+                htf_interval="1h",
+                model="B",
+                initial_capital=initial_capital
+            ),
+            "day": PaperStrategyTrack(
+                strategy_id="day",
+                name="Day Trading / Swing (15m)",
+                symbols=symbols,
+                interval="15m",
+                htf_interval="4h",
+                model="B",
+                initial_capital=initial_capital
+            )
+        }
+
+        if interval:
+            if interval in ["1m", "3m"]:
+                self.active_strategy_id = "scalp"
+            elif interval == "15m":
+                self.active_strategy_id = "day"
+            else:
+                self.active_strategy_id = "intraday"
+        else:
+            self.active_strategy_id = "scalp" if model.upper() == "A" else "intraday"
+
+    @property
+    def primary_track(self) -> PaperStrategyTrack:
+        return self.strategies.get(self.active_strategy_id, self.strategies["intraday"])
+
+    @property
+    def current_balance(self) -> float:
+        return self.primary_track.current_balance
+
+    @current_balance.setter
+    def current_balance(self, val: float):
+        self.primary_track.current_balance = float(val)
+
+    @property
+    def closed_trades(self) -> List[Dict[str, Any]]:
+        return self.primary_track.closed_trades
+
+    @closed_trades.setter
+    def closed_trades(self, val: List[Dict[str, Any]]):
+        self.primary_track.closed_trades = val
+
+    @property
+    def execution(self) -> ExecutionEngine:
+        return self.primary_track.execution
+
+    @property
+    def professors(self) -> Dict[str, ProfessorAgent]:
+        return self.primary_track.professors
+
+    @property
+    def model(self) -> str:
+        return self.primary_track.model
+
+    @model.setter
+    def model(self, val: str):
+        self.primary_track.model = val.upper()
+
+    @property
+    def interval(self) -> str:
+        return self.primary_track.interval
+
+    @interval.setter
+    def interval(self, val: str):
+        self.primary_track.interval = val
+
+    @property
+    def htf_interval(self) -> str:
+        return self.primary_track.htf_interval
+
+    @htf_interval.setter
+    def htf_interval(self, val: str):
+        self.primary_track.htf_interval = val
+
+    @property
+    def last_scanned_candle_times(self) -> Dict[str, int]:
+        return self.primary_track.last_scanned_candle_times
+
+    def get_win_rate(self) -> float:
+        return self.primary_track.get_win_rate()
+
+    def get_active_position_data(self, market_prices: Dict[str, float]) -> Optional[Dict[str, Any]]:
+        return self.primary_track.get_active_position_data(market_prices)
+
+    def get_summary(self, market_prices: Dict[str, float]) -> Dict[str, Any]:
+        """Retourne le résumé complet des métriques du portefeuille et de ses 3 stratégies parallèles."""
+        summary = self.primary_track.get_summary(market_prices)
+        summary["key"] = self.key
+        summary["name"] = self.name
+        summary["symbols"] = self.symbols
+        summary["active_strategy_id"] = self.active_strategy_id
+        summary["strategies"] = {
+            s_id: s.get_summary(market_prices) for s_id, s in self.strategies.items()
+        }
+        return summary
 
 
 class PaperTradingDaemon:
@@ -276,7 +413,15 @@ class PaperTradingDaemon:
                     "initial_capital": b.initial_capital,
                     "closed_trades": b.closed_trades,
                     "active_position": b.execution.active_position,
-                    "active_orders": b.execution.active_orders
+                    "active_orders": b.execution.active_orders,
+                    "strategies": {
+                        s_id: {
+                            "current_balance": round(s.current_balance, 2),
+                            "closed_trades": s.closed_trades,
+                            "active_position": s.execution.active_position,
+                            "active_orders": s.execution.active_orders
+                        } for s_id, s in b.strategies.items()
+                    }
                 }
             tmp = target.with_suffix(".tmp")
             with open(tmp, "w", encoding="utf-8") as f:
@@ -303,20 +448,29 @@ class PaperTradingDaemon:
                     b.current_balance = float(b_info.get("current_balance", b.initial_capital))
                     b.closed_trades = b_info.get("closed_trades", [])
 
-                    # Synchroniser le solde sur les agents professeurs de ce panier
-                    for p in b.professors.values():
-                        p.balance = b.current_balance
-                        p.risk_mgr.update_balance(b.current_balance)
-
-                    # Restaurer la position active si présente
                     pos = b_info.get("active_position")
                     if pos:
                         b.execution.active_position = pos
 
-                    # Restaurer les ordres actifs
                     orders = b_info.get("active_orders")
                     if orders and isinstance(orders, dict):
                         b.execution.active_orders = orders
+
+                    # Restaurer les sous-stratégies si présentes
+                    saved_strats = b_info.get("strategies", {})
+                    for s_id, s in b.strategies.items():
+                        if s_id in saved_strats:
+                            s_info = saved_strats[s_id]
+                            s.current_balance = float(s_info.get("current_balance", s.initial_capital))
+                            s.closed_trades = s_info.get("closed_trades", [])
+                            if s_info.get("active_position"):
+                                s.execution.active_position = s_info["active_position"]
+                            if s_info.get("active_orders"):
+                                s.execution.active_orders = s_info["active_orders"]
+
+                    for p in b.professors.values():
+                        p.balance = b.current_balance
+                        p.risk_mgr.update_balance(b.current_balance)
 
             saved_key = data.get("active_basket_key")
             if saved_key and saved_key in self.baskets:
@@ -329,18 +483,23 @@ class PaperTradingDaemon:
             return False
 
     def reset_state(self, file_path: Optional[Path] = None) -> Dict[str, Any]:
-        """Réinitialise tous les portefeuilles à 100$ et efface les données sauvegardées."""
+        """Réinitialise tous les portefeuilles et stratégies à 100$ et efface les données sauvegardées."""
         for b in self.baskets.values():
+            for s in b.strategies.values():
+                s.current_balance = s.initial_capital
+                s.closed_trades = []
+                s.execution.active_position = None
+                s.execution.active_orders.clear()
+                for p in s.professors.values():
+                    p.balance = s.initial_capital
+                    p.risk_mgr.update_balance(s.initial_capital)
+                    p.palermo.consecutive_losses = 0
+                    p.palermo.daily_realized_r = 0.0
+                    p.palermo.is_halted = False
             b.current_balance = b.initial_capital
             b.closed_trades = []
             b.execution.active_position = None
             b.execution.active_orders.clear()
-            for p in b.professors.values():
-                p.balance = b.initial_capital
-                p.risk_mgr.update_balance(b.initial_capital)
-                p.palermo.consecutive_losses = 0
-                p.palermo.daily_realized_r = 0.0
-                p.palermo.is_halted = False
         target = file_path or self.state_file
         if target.exists():
             try:
@@ -352,22 +511,22 @@ class PaperTradingDaemon:
 
     def check_session_window(self) -> Tuple[bool, str]:
         """
-        Vérifie si l'heure actuelle est dans les sessions de haute liquidité (Londres / NY : 08:00 - 20:00 UTC).
+        Vérifie si l'heure actuelle est dans les sessions de haute liquidité (Londres / NY : 07:00 - 21:00 UTC).
+        Couvre le pré-open Londres (09h00 Paris) jusqu'à la clôture US (23h00 Paris).
         """
         if not self.session_filter_enabled:
             return True, "Filtre de session inactif (24h/24)"
 
         current_utc_hour = datetime.now(timezone.utc).hour
-        if 8 <= current_utc_hour < 20:
+        if 7 <= current_utc_hour < 21:
             return True, f"Session active : Londres/New York ({current_utc_hour:02d}:00 UTC)"
         else:
             return False, f"Session Asiatique ({current_utc_hour:02d}:00 UTC) : Entrées suspendues par sécurité"
 
     def step(self) -> Dict[str, Any]:
         """
-        Exécute un cycle de surveillance parallèle sur l'ensemble des 3 paniers.
-        Les carnets d'ordres sont interrogés une seule fois par symbole pour une efficacité maximale.
-        Auto-save automatique sur disque en cas d'événement de trading.
+        Exécute un cycle de surveillance parallèle sur l'ensemble des 3 paniers et leurs 3 stratégies (Scalp, Intraday, Day).
+        Grâce au cache mémoire des bougies et carnets, chaque coin n'est interrogé qu'une fois par cycle.
         """
         self.last_update_time = time.time()
         state_changed = False
@@ -381,92 +540,97 @@ class PaperTradingDaemon:
 
         session_allowed, session_msg = self.check_session_window()
 
-        # 2. Cycle pour chaque panier en parallèle
+        # 2. Cycle pour chaque panier et chaque stratégie en parallèle
         for b_key, basket in self.baskets.items():
-            had_active_pos = bool(basket.execution.active_position)
+            for strat_id, strat in basket.strategies.items():
+                had_active_pos = bool(strat.execution.active_position)
 
-            # Mise à jour des positions actives si le marché a bougé
-            if basket.execution.active_position:
-                pos_sym = basket.execution.active_position.get("symbol")
-                if pos_sym and self.current_market_prices.get(pos_sym, 0) > 0:
-                    closed_trade = basket.execution.update_live_market_price(self.current_market_prices[pos_sym])
-                    if closed_trade:
-                        pnl = closed_trade["pnl_usd"]
-                        basket.current_balance += pnl
-                        for p in basket.professors.values():
-                            p.balance = basket.current_balance
-                            p.risk_mgr.update_balance(basket.current_balance)
+                # Mise à jour des positions actives
+                if strat.execution.active_position:
+                    pos_sym = strat.execution.active_position.get("symbol")
+                    if pos_sym and self.current_market_prices.get(pos_sym, 0) > 0:
+                        closed_trade = strat.execution.update_live_market_price(self.current_market_prices[pos_sym])
+                        if closed_trade:
+                            pnl = closed_trade["pnl_usd"]
+                            strat.current_balance += pnl
+                            for p in strat.professors.values():
+                                p.balance = strat.current_balance
+                                p.risk_mgr.update_balance(strat.current_balance)
 
-                        risk_usd = closed_trade.get("notional_usd", 10.0) * 0.01
-                        r_multiple = round(pnl / max(0.1, risk_usd), 2)
-                        if pos_sym in basket.professors:
-                            basket.professors[pos_sym].palermo.record_trade_result(r_multiple)
+                            risk_usd = closed_trade.get("notional_usd", 10.0) * 0.01
+                            r_multiple = round(pnl / max(0.1, risk_usd), 2)
+                            if pos_sym in strat.professors:
+                                strat.professors[pos_sym].palermo.record_trade_result(r_multiple)
 
-                        closed_trade["closed_balance"] = round(basket.current_balance, 2)
-                        closed_trade["r_multiple"] = r_multiple
-                        basket.closed_trades.append(closed_trade)
-                        state_changed = True
+                            closed_trade["closed_balance"] = round(strat.current_balance, 2)
+                            closed_trade["r_multiple"] = r_multiple
+                            strat.closed_trades.append(closed_trade)
+                            state_changed = True
 
-                        # Alerte mobile de trade clôturé
-                        self.notifier.notify_trade_closed(basket.name, closed_trade)
+                            # Alerte mobile de trade clôturé
+                            tag = f"{basket.name} • {strat.name}"
+                            self.notifier.notify_trade_closed(tag, closed_trade)
 
-                        now_str = time.strftime("%H:%M:%S")
-                        if pos_sym in basket.professors:
-                            basket.professors[pos_sym].activity_log.append(
-                                type("Msg", (), {
-                                    "timestamp": now_str,
-                                    "agent": "HELSINKI",
-                                    "status": "CLEARED" if pnl >= 0 else "VETO",
-                                    "message": f"[{basket.name}] Position {pos_sym} clôturée [{closed_trade['exit_reason']}] PnL: {pnl:+.2f}$ ({r_multiple:+.1f}R) | Solde: {basket.current_balance:.2f}$"
-                                })()
-                            )
+                            now_str = time.strftime("%H:%M:%S")
+                            if pos_sym in strat.professors:
+                                strat.professors[pos_sym].activity_log.append(
+                                    type("Msg", (), {
+                                        "timestamp": now_str,
+                                        "agent": "HELSINKI",
+                                        "status": "CLEARED" if pnl >= 0 else "VETO",
+                                        "message": f"[{tag}] Position {pos_sym} clôturée [{closed_trade['exit_reason']}] PnL: {pnl:+.2f}$ ({r_multiple:+.1f}R) | Solde: {strat.current_balance:.2f}$"
+                                    })()
+                                )
 
-            # Notification si un ordre limite vient d'être exécuté (Filled)
-            if not had_active_pos and basket.execution.active_position:
-                self.notifier.notify_position_filled(basket.name, basket.execution.active_position)
+                # Notification si un ordre limite vient d'être exécuté (Filled)
+                if not had_active_pos and strat.execution.active_position:
+                    tag = f"{basket.name} • {strat.name}"
+                    self.notifier.notify_position_filled(tag, strat.execution.active_position)
 
-            # Notification si le True Breakeven vient d'être activé
-            if basket.execution.active_position and basket.execution.active_position.get("be_activated") and not basket.execution.active_position.get("_be_notified"):
-                self.notifier.notify_breakeven_activated(basket.name, basket.execution.active_position)
-                basket.execution.active_position["_be_notified"] = True
+                # Notification si le True Breakeven vient d'être activé
+                if strat.execution.active_position and strat.execution.active_position.get("be_activated") and not strat.execution.active_position.get("_be_notified"):
+                    tag = f"{basket.name} • {strat.name}"
+                    self.notifier.notify_breakeven_activated(tag, strat.execution.active_position)
+                    strat.execution.active_position["_be_notified"] = True
 
-            # Nettoyage des ordres limites expirés (> 3 min)
-            canceled_count = basket.execution.cancel_stale_orders()
-            if canceled_count > 0:
-                state_changed = True
+                # Nettoyage des ordres limites expirés (> 3 min)
+                canceled_count = strat.execution.cancel_stale_orders()
+                if canceled_count > 0:
+                    state_changed = True
 
-            # Si ce panier a déjà une position ou un ordre actif, ou si session fermée, ne pas chercher d'entrée
-            if basket.execution.active_orders or basket.execution.active_position or not session_allowed:
-                continue
-
-            # Scanner les symboles propres à ce panier
-            for sym in basket.symbols:
-                mid_px = self.current_market_prices.get(sym, 0.0)
-                if mid_px <= 0:
+                # Si cette stratégie a déjà une position ou un ordre actif, ou si session fermée, ne pas chercher d'entrée
+                if strat.execution.active_orders or strat.execution.active_position or not session_allowed:
                     continue
 
-                best_bid, best_ask, _ = self.data_feed.fetch_order_book(sym)
-                if best_bid <= 0 or best_ask <= 0:
-                    continue
+                # Scanner les symboles propres à cette stratégie
+                for sym in strat.symbols:
+                    mid_px = self.current_market_prices.get(sym, 0.0)
+                    if mid_px <= 0:
+                        continue
 
-                htf_df = self.data_feed.fetch_candles(sym, interval=basket.htf_interval, limit_candles=50)
-                df = self.data_feed.fetch_candles(sym, interval=basket.interval, limit_candles=80)
-                if df.empty or len(df) < 30:
-                    continue
+                    best_bid, best_ask, _ = self.data_feed.fetch_order_book(sym)
+                    if best_bid <= 0 or best_ask <= 0:
+                        continue
 
-                latest_candle_time = int(df['timestamp'].iloc[-1])
-                if latest_candle_time == basket.last_scanned_candle_times.get(sym, 0):
-                    continue
-                basket.last_scanned_candle_times[sym] = latest_candle_time
+                    htf_df = self.data_feed.fetch_candles(sym, interval=strat.htf_interval, limit_candles=50)
+                    df = self.data_feed.fetch_candles(sym, interval=strat.interval, limit_candles=80)
+                    if df.empty or len(df) < 30:
+                        continue
 
-                # Délibération de la brigade d'agents pour ce symbole et ce panier
-                if sym in basket.professors:
-                    pipeline_result: DeskPipelineResult = basket.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
-                    if pipeline_result.approved and pipeline_result.proposal:
-                        order_ticket = basket.execution.place_bracket_order(pipeline_result.proposal)
-                        self.notifier.notify_order_placed(basket.name, order_ticket)
-                        state_changed = True
-                        break  # Un ordre placé pour ce panier à ce cycle
+                    latest_candle_time = int(df['timestamp'].iloc[-1])
+                    if latest_candle_time == strat.last_scanned_candle_times.get(sym, 0):
+                        continue
+                    strat.last_scanned_candle_times[sym] = latest_candle_time
+
+                    # Délibération de la brigade d'agents pour ce symbole et cette stratégie
+                    if sym in strat.professors:
+                        pipeline_result: DeskPipelineResult = strat.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
+                        if pipeline_result.approved and pipeline_result.proposal:
+                            order_ticket = strat.execution.place_bracket_order(pipeline_result.proposal)
+                            tag = f"{basket.name} • {strat.name}"
+                            self.notifier.notify_order_placed(tag, order_ticket)
+                            state_changed = True
+                            break  # Un ordre placé pour cette stratégie à ce cycle
 
 
         if state_changed:

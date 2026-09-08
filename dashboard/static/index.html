@@ -117,7 +117,10 @@
 
         <div class="ribbon-group" id="group-active-coin">
             <span class="ribbon-label">ACTIF :</span>
-            <span id="badge-active-symbol" class="btn" style="font-weight: 800; color: #00d2ff; border-color: rgba(0, 210, 255, 0.4); padding: 3px 8px;">SOL</span>
+            <div id="coin-pills-container" class="coin-switch-group">
+                <button class="btn btn-coin active" data-coin="SOL">SOL</button>
+                <button class="btn btn-coin" data-coin="SUI">SUI</button>
+            </div>
         </div>
 
         <div class="ribbon-actions" id="ribbon-backtest-actions" style="display: none; align-items: center; gap: 8px;">
@@ -146,6 +149,11 @@
                     <span class="basket-balance" id="basket-alpha-bal">$100.00</span>
                     <span class="basket-pnl positive" id="basket-alpha-pnl">+0.00$ (+0.0%)</span>
                 </div>
+                <div class="basket-strats-row">
+                    <span class="strat-pill" id="strat-pill-alpha-scalp" title="Scalp M1">⚡ M1</span>
+                    <span class="strat-pill" id="strat-pill-alpha-intraday" title="Intraday M5">📊 M5</span>
+                    <span class="strat-pill" id="strat-pill-alpha-day" title="Day M15">🏛 M15</span>
+                </div>
                 <div class="basket-card-footer">
                     <span id="basket-alpha-trades">0 trade | WR: 0%</span>
                     <span class="basket-status-dot scanning" id="basket-alpha-status">SCANNING</span>
@@ -161,6 +169,11 @@
                     <span class="basket-balance" id="basket-quad-bal">$100.00</span>
                     <span class="basket-pnl positive" id="basket-quad-pnl">+0.00$ (+0.0%)</span>
                 </div>
+                <div class="basket-strats-row">
+                    <span class="strat-pill" id="strat-pill-quad-scalp" title="Scalp M3">⚡ M3</span>
+                    <span class="strat-pill" id="strat-pill-quad-intraday" title="Intraday M5">📊 M5</span>
+                    <span class="strat-pill" id="strat-pill-quad-day" title="Day M15">🏛 M15</span>
+                </div>
                 <div class="basket-card-footer">
                     <span id="basket-quad-trades">0 trade | WR: 0%</span>
                     <span class="basket-status-dot scanning" id="basket-quad-status">SCANNING</span>
@@ -175,6 +188,11 @@
                 <div class="basket-card-body">
                     <span class="basket-balance" id="basket-core-bal">$100.00</span>
                     <span class="basket-pnl positive" id="basket-core-pnl">+0.00$ (+0.0%)</span>
+                </div>
+                <div class="basket-strats-row">
+                    <span class="strat-pill" id="strat-pill-core-scalp" title="Scalp M1">⚡ M1</span>
+                    <span class="strat-pill" id="strat-pill-core-intraday" title="Intraday M5">📊 M5</span>
+                    <span class="strat-pill" id="strat-pill-core-day" title="Day M15">🏛 M15</span>
                 </div>
                 <div class="basket-card-footer">
                     <span id="basket-core-trades">0 trade | WR: 0%</span>

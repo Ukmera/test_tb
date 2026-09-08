@@ -15,6 +15,8 @@ class HyperliquidDataFeed:
     def __init__(self, api_url: str = HYPERLIQUID_MAINNET_API):
         self.api_url = api_url.rstrip("/")
         self.info_url = f"{self.api_url}/info"
+        self._candle_cache: Dict[str, Tuple[float, pd.DataFrame]] = {}
+        self._order_book_cache: Dict[str, Tuple[float, Tuple[float, float, float]]] = {}
 
     def fetch_candles(
         self,
@@ -27,8 +29,18 @@ class HyperliquidDataFeed:
         """
         Récupère les bougies historiques depuis Hyperliquid.
         Convertit les données en DataFrame standardisé (timestamp, open, high, low, close, volume).
+        Intègre un cache mémoire ultra-rapide (3s) pour immuniser le serveur contre le rate-limiting 429.
         """
-        now_ms = int(time.time() * 1000)
+        now = time.time()
+        cache_key = f"{coin}_{interval}_{limit_candles}"
+        is_live_query = (start_time_ms is None and end_time_ms is None)
+
+        if is_live_query and cache_key in self._candle_cache:
+            c_time, c_df = self._candle_cache[cache_key]
+            if now - c_time < 3.0:  # Cache frais de 3 secondes
+                return c_df.copy()
+
+        now_ms = int(now * 1000)
         if end_time_ms is None:
             end_time_ms = now_ms
 
@@ -82,21 +94,35 @@ class HyperliquidDataFeed:
             df = pd.DataFrame(rows)
             df.sort_values("timestamp", inplace=True)
             df.reset_index(drop=True, inplace=True)
+
+            if is_live_query and not df.empty:
+                self._candle_cache[cache_key] = (now, df)
+
             return df
         except Exception as e:
             print(f"[DataFeed Error] Échec de la récupération des bougies {coin} ({interval}): {e}")
+            if cache_key in self._candle_cache:
+                print(f"[DataFeed Cache] Utilisation des bougies {coin} ({interval}) en cache mémoire.")
+                return self._candle_cache[cache_key][1].copy()
             return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
 
     def fetch_order_book(self, coin: str = "BTC") -> Tuple[float, float, float]:
         """
         Récupère le carnet d'ordres L2 et renvoie (best_bid, best_ask, spread_pct).
+        Cache ultra-réactif de 1.5 seconde pour éviter le spam API.
         """
+        now = time.time()
+        if coin in self._order_book_cache:
+            ob_time, ob_val = self._order_book_cache[coin]
+            if now - ob_time < 1.5:
+                return ob_val
+
         payload = {
             "type": "l2Book",
             "coin": coin
         }
         try:
-            resp = requests.post(self.info_url, json=payload, headers={"Content-Type": "application/json"}, timeout=5)
+            resp = requests.post(self.info_url, json=payload, headers={"Content-Type": "application/json"}, timeout=4)
             resp.raise_for_status()
             book = resp.json()
             levels = book.get("levels", [])
@@ -104,9 +130,13 @@ class HyperliquidDataFeed:
                 best_bid = float(levels[0][0]["px"])
                 best_ask = float(levels[1][0]["px"])
                 spread_pct = (best_ask - best_bid) / best_bid if best_bid > 0 else 0.0
-                return best_bid, best_ask, spread_pct
+                res = (best_bid, best_ask, spread_pct)
+                self._order_book_cache[coin] = (now, res)
+                return res
         except Exception as e:
             print(f"[DataFeed Error] Impossible de lire le carnet d'ordres pour {coin}: {e}")
+            if coin in self._order_book_cache:
+                return self._order_book_cache[coin][1]
         return 0.0, 0.0, 1.0
 
     def cache_historical_data(self, df: pd.DataFrame, coin: str, interval: str, suffix: str = "historical") -> Path:

@@ -547,11 +547,46 @@ async function switchMainView(view) {
 }
 window.switchMainView = switchMainView;
 
+let candleAbortController = null;
+
+function updateCoinPills(symbols) {
+    const container = document.getElementById("coin-pills-container");
+    if (!container || !symbols || !symbols.length) return;
+    container.innerHTML = "";
+    symbols.forEach(sym => {
+        const btn = document.createElement("button");
+        btn.className = `btn btn-coin ${sym === currentCoin ? 'active' : ''}`;
+        btn.setAttribute("data-coin", sym);
+        btn.textContent = sym;
+        btn.addEventListener("click", () => {
+            currentCoin = sym;
+            document.querySelectorAll(".btn-coin").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            loadLiveCandles(true, sym);
+        });
+        container.appendChild(btn);
+    });
+}
+
 async function loadLiveCandles(fit = false, coinOverride = null) {
     if (currentMode !== "live") return;
     const coin = coinOverride || currentCoin || "SOL";
+    currentCoin = coin;
+
+    document.querySelectorAll(".btn-coin").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-coin") === coin);
+    });
+
+    if (candleAbortController) {
+        candleAbortController.abort();
+    }
+    candleAbortController = new AbortController();
+
     try {
-        const resp = await fetch(`/api/candles?coin=${coin}&interval=${currentTimeframe}&limit=250`);
+        const resp = await fetch(`/api/candles?coin=${coin}&interval=${currentTimeframe}&limit=250`, {
+            signal: candleAbortController.signal
+        });
+        if (!resp.ok) return;
         const data = await resp.json();
 
         if (!data || !data.candles || !data.candles.length) return;
@@ -563,14 +598,17 @@ async function loadLiveCandles(fit = false, coinOverride = null) {
 
         // Mise à jour de l'overlay OHLC
         const last = data.candles[data.candles.length - 1];
-        document.getElementById("overlay-ohlc").innerHTML = `
-            <strong>${coin}/USDC</strong> <span style="color:#00d2ff; font-weight:700;">${currentTimeframe.toUpperCase()}</span> (Direct HL) &nbsp;|&nbsp; 
-            O: <span style="color:#d1d4dc">${last.open}</span> 
-            H: <span style="color:#00e676">${last.high}</span> 
-            L: <span style="color:#ff3d71">${last.low}</span> 
-            C: <span style="color:#d1d4dc">${last.close}</span> &nbsp;|&nbsp;
-            Biais: <span style="color:${data.smc.trend === 'BULLISH' ? '#00e676' : (data.smc.trend === 'BEARISH' ? '#ff3d71' : '#848e9c')}">${data.smc.trend}</span>
-        `;
+        const overlay = document.getElementById("overlay-ohlc");
+        if (overlay) {
+            overlay.innerHTML = `
+                <strong>${coin}/USDC</strong> <span style="color:#00d2ff; font-weight:700;">${currentTimeframe.toUpperCase()}</span> (Direct HL) &nbsp;|&nbsp; 
+                O: <span style="color:#d1d4dc">${last.open}</span> 
+                H: <span style="color:#00e676">${last.high}</span> 
+                L: <span style="color:#ff3d71">${last.low}</span> 
+                C: <span style="color:#d1d4dc">${last.close}</span> &nbsp;|&nbsp;
+                Biais: <span style="color:${data.smc.trend === 'BULLISH' ? '#00e676' : (data.smc.trend === 'BEARISH' ? '#ff3d71' : '#848e9c')}">${data.smc.trend}</span>
+            `;
+        }
 
         const badgeSym = document.getElementById("badge-active-symbol");
         if (badgeSym) badgeSym.textContent = coin;
@@ -594,7 +632,9 @@ async function loadLiveCandles(fit = false, coinOverride = null) {
             chart.timeScale().fitContent();
         }
     } catch (e) {
-        console.error("Erreur chargement live candles:", e);
+        if (e.name !== "AbortError") {
+            console.error("Erreur chargement live candles:", e);
+        }
     }
 }
 
@@ -1199,7 +1239,35 @@ async function loadPaperTradingStatus() {
                         statusElem.className = "basket-status-dot scanning";
                     }
                 }
+
+                // Mettre à jour les pills de stratégies (Scalp, Intraday, Day)
+                if (bInfo.strategies) {
+                    ["scalp", "intraday", "day"].forEach(sId => {
+                        const pill = document.getElementById(`strat-pill-${bKey}-${sId}`);
+                        const sData = bInfo.strategies[sId];
+                        if (pill && sData) {
+                            const isAct = (bInfo.active_strategy_id === sId);
+                            pill.classList.toggle("active", isAct);
+                            if (sData.active_position) {
+                                pill.style.borderColor = "#00e676";
+                                pill.style.color = "#00e676";
+                                pill.style.boxShadow = "0 0 6px rgba(0, 230, 118, 0.4)";
+                            } else {
+                                pill.style.borderColor = "";
+                                pill.style.color = "";
+                                pill.style.boxShadow = "";
+                            }
+                        }
+                    });
+                }
             });
+        }
+
+        if (data.portfolio_symbols && data.portfolio_symbols.length) {
+            const coinContainer = document.getElementById("coin-pills-container");
+            if (coinContainer && coinContainer.children.length !== data.portfolio_symbols.length) {
+                updateCoinPills(data.portfolio_symbols);
+            }
         }
 
         // 4. Position en direct (Header HUD)
@@ -1243,16 +1311,26 @@ async function loadPaperTradingStatus() {
 
 async function switchActiveBasket(basketKey) {
     try {
+        currentActiveBasket = basketKey;
+        // Changement visuel immédiat (zéro lag perçu)
+        ["alpha", "quad", "core"].forEach(k => {
+            const card = document.getElementById(`card-basket-${k}`);
+            if (card) card.classList.toggle("active", k === basketKey);
+        });
+
         const resp = await fetch(`/api/paper-trading/basket?basket=${basketKey}`, { method: "POST" });
         const data = await resp.json();
         if (data.status === "success") {
             currentActiveBasket = data.active_basket_key;
             if (data.symbols && data.symbols.length) {
-                currentCoin = data.symbols[0];
+                if (!data.symbols.includes(currentCoin)) {
+                    currentCoin = data.symbols[0];
+                }
+                updateCoinPills(data.symbols);
             }
-            await loadPaperTradingStatus();
-            await loadAgentsStatus();
-            await loadLiveCandles(true, currentCoin);
+            loadPaperTradingStatus();
+            loadAgentsStatus();
+            loadLiveCandles(true, currentCoin);
         }
     } catch (e) {
         console.error("Erreur switchActiveBasket:", e);

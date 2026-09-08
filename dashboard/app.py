@@ -37,8 +37,31 @@ app.add_middleware(
 data_feed = HyperliquidDataFeed()
 smc_engine = SMCEngine()
 risk_mgr = RiskManager()
+import threading
+
 professor = ProfessorAgent(symbol=DEFAULT_SYMBOL, initial_balance=INITIAL_CAPITAL_USD)
 paper_trader = PaperTradingDaemon(symbol=DEFAULT_SYMBOL, model="B", initial_capital=INITIAL_CAPITAL_USD)
+
+def _paper_trading_background_loop():
+    """Worker en arrière-plan autonome pour ne jamais bloquer les requêtes HTTP de l'utilisateur."""
+    print("[Paper Trading Background Worker] Démon temps réel autonome actif (cycle 8s).")
+    # Premier cycle immédiat
+    try:
+        if paper_trader.is_running:
+            paper_trader.step()
+    except Exception as e:
+        print(f"[Paper Trading Initial Step Error] {e}")
+
+    while True:
+        time.sleep(8)
+        try:
+            if paper_trader.is_running:
+                paper_trader.step()
+        except Exception as e:
+            print(f"[Paper Trading Worker Error] {e}")
+
+_bg_thread = threading.Thread(target=_paper_trading_background_loop, daemon=True)
+_bg_thread.start()
 
 STATIC_DIR = BASE_DIR / "dashboard" / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,12 +79,7 @@ def get_dashboard_index():
 
 @app.get("/api/paper-trading")
 def get_paper_trading_state() -> Dict[str, Any]:
-    """Exécute un cycle de surveillance du Paper Trading et retourne son état en temps réel."""
-    try:
-        if paper_trader.is_running:
-            paper_trader.step()
-    except Exception as e:
-        print(f"[Paper Trading Warning] Erreur cycle step: {e}")
+    """Retourne instantanément l'état en mémoire du Paper Trading (< 1ms, zéro lag UI)."""
     return paper_trader.get_state()
 
 

@@ -26,8 +26,10 @@ body {
   font-family: var(--font-family);
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 /* Header */
@@ -341,6 +343,71 @@ header {
 .btn-mode.active {
   background-color: #1f2738;
   border-color: #3b72ff;
+}
+
+.coin-switch-group {
+  display: flex;
+  align-items: center;
+  background-color: #171b26;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  gap: 2px;
+}
+
+.btn-coin {
+  padding: 3px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background-color: transparent;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-coin:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.btn-coin.active {
+  background-color: #1f2738;
+  border-color: #00d2ff;
+  color: #00d2ff;
+  font-weight: 800;
+}
+
+.basket-strats-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 5px 0 3px 0;
+  flex-wrap: wrap;
+}
+
+.strat-pill {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #848e9c;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.strat-pill:hover {
+  background: rgba(0, 210, 255, 0.1);
+  color: #00d2ff;
+}
+
+.strat-pill.active {
+  background: rgba(0, 210, 255, 0.18);
+  border-color: rgba(0, 210, 255, 0.4);
+  color: #00d2ff;
 }
 
 .ribbon-actions {
