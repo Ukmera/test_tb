@@ -593,8 +593,8 @@ class PaperTradingDaemon:
                     self.notifier.notify_breakeven_activated(tag, strat.execution.active_position)
                     strat.execution.active_position["_be_notified"] = True
 
-                # Nettoyage des ordres limites expirés (> 3 min)
-                canceled_count = strat.execution.cancel_stale_orders()
+                # Nettoyage des ordres limites expirés ou invalidés (Missed Train)
+                canceled_count = strat.execution.cancel_stale_orders(self.current_market_prices)
                 if canceled_count > 0:
                     state_changed = True
 
@@ -626,7 +626,7 @@ class PaperTradingDaemon:
                     if sym in strat.professors:
                         pipeline_result: DeskPipelineResult = strat.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
                         if pipeline_result.approved and pipeline_result.proposal:
-                            order_ticket = strat.execution.place_bracket_order(pipeline_result.proposal)
+                            order_ticket = strat.execution.place_bracket_order(pipeline_result.proposal, timeframe=strat.interval)
                             tag = f"{basket.name} • {strat.name}"
                             self.notifier.notify_order_placed(tag, order_ticket)
                             state_changed = True

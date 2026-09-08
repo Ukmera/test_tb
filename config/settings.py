@@ -21,7 +21,16 @@ MAX_CONSECUTIVE_LOSSES = 3     # Pause trading after 3 consecutive stop-losses
 MAX_SPREAD_PCT = 0.0004     # 0.04% max bid-ask spread permitted
 MAX_SLIPPAGE_PCT = 0.0005   # 0.05% max acceptable slippage
 MAKER_ONLY = True           # Use Limit/Maker orders to minimize exchange fees
-ORDER_TIMEOUT_SECONDS = 180 # Cancel unfilled limit orders after 3 minutes
+ORDER_TIMEOUT_SECONDS = 2700 # Délai limite par défaut : 45 minutes (au lieu des 3 min initiales)
+
+# Délais d'expiration adaptés au timeframe et au cycle de pullback SMC
+ORDER_TIMEOUT_MAP = {
+    "1m": 900,     # Scalp 1m : 15 minutes (15 bougies)
+    "3m": 1800,    # Scalp 3m : 30 minutes (10 bougies)
+    "5m": 2700,    # Intraday 5m : 45 minutes (9 bougies)
+    "15m": 5400,   # Day 15m : 90 minutes (6 bougies)
+    "1h": 14400    # Swing 1h : 4 heures
+}
 
 # --- TIMEFRAMES ---
 HTF_TIMEFRAME = "1h"        # Higher Timeframe: Market Trend & Primary Key Levels

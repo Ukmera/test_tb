@@ -4,7 +4,8 @@ from config.settings import (
     HYPERLIQUID_TESTNET,
     HYPERLIQUID_WALLET_ADDRESS,
     HYPERLIQUID_PRIVATE_KEY,
-    ORDER_TIMEOUT_SECONDS
+    ORDER_TIMEOUT_SECONDS,
+    ORDER_TIMEOUT_MAP
 )
 from core.risk_manager import TradeOrderProposal
 
@@ -21,12 +22,13 @@ class ExecutionEngine:
         self.active_orders: Dict[str, Any] = {}
         self.active_position: Optional[Dict[str, Any]] = None
 
-    def place_bracket_order(self, proposal: TradeOrderProposal) -> Dict[str, Any]:
+    def place_bracket_order(self, proposal: TradeOrderProposal, timeframe: str = "5m") -> Dict[str, Any]:
         """
         Place un ordre limite d'entrée avec gestion institutionnelle en 3 tiers :
         Tier 1 (+1.0R, 33%) -> Activation du True Breakeven (+ fees nettes)
         Tier 2 (+3.0R, 33%) -> Verrouillage du Stop Loss à +1.0R
         Tier 3 (34%) -> Trailing Stop dynamique structurel & ATR
+        Calcule un délai d'expiration adapté à la timeframe et à la qualité du setup SMC.
         """
         order_id = f"HL_{proposal.symbol}_{int(time.time()*1000)}"
         risk_dist = abs(proposal.entry_price - proposal.stop_loss)
@@ -40,6 +42,13 @@ class ExecutionEngine:
         t2_sz = round(proposal.position_size * 0.33, 6)
         t3_sz = round(proposal.position_size - t1_sz - t2_sz, 6)
         entry_fee = proposal.entry_price * proposal.position_size * 0.0002
+
+        # Délai d'expiration adapté à la timeframe (1m=15min, 3m=30min, 5m=45min, 15m=90min)
+        tf_timeout = ORDER_TIMEOUT_MAP.get(timeframe, ORDER_TIMEOUT_SECONDS)
+        # Pour les setups 5 étoiles (avec prior liquidity sweep), accorder plus de patience (+50%)
+        is_5_star = getattr(proposal, "has_prior_sweep", False) or "5_STAR" in getattr(proposal, "grade", "")
+        if is_5_star:
+            tf_timeout = int(tf_timeout * 1.5)
 
         order_data = {
             "order_id": order_id,
@@ -68,24 +77,45 @@ class ExecutionEngine:
             "accumulated_pnl": 0.0,
             "fees_paid": entry_fee,
             "grade": proposal.grade,
-            "has_prior_sweep": proposal.has_prior_sweep
+            "has_prior_sweep": proposal.has_prior_sweep,
+            "timeframe": timeframe,
+            "timeout_seconds": tf_timeout
         }
 
         self.active_orders[order_id] = order_data
-        print(f"[Execution Engine] Ordre Maker placé : {order_id} | {'LONG' if proposal.is_long else 'SHORT'} {proposal.position_size} {proposal.symbol} @ {proposal.entry_price}$ (SL: {proposal.stop_loss}$, TP1: {tp1:.1f}$, TP2: {tp2:.1f}$)")
+        timeout_min = tf_timeout // 60
+        print(f"[Execution Engine] Ordre Maker placé : {order_id} | {'LONG' if proposal.is_long else 'SHORT'} {proposal.position_size} {proposal.symbol} @ {proposal.entry_price}$ (SL: {proposal.stop_loss}$, TP1: {tp1:.1f}$, TP2: {tp2:.1f}$ | Validité: {timeout_min} min)")
         return order_data
 
-    def cancel_stale_orders(self) -> int:
-        """Annule les ordres limites non exécutés après expiration du délai de sécurité."""
+    def cancel_stale_orders(self, current_market_prices: Optional[Dict[str, float]] = None) -> int:
+        """
+        Annule les ordres limites non exécutés après expiration de leur délai adapté.
+        Annule également de façon proactive si l'objectif Take Profit a été atteint avant l'exécution ("missed train").
+        """
         now = time.time()
         cancelled_count = 0
         to_remove = []
 
-        for oid, order in self.active_orders.items():
-            if now - order["created_at"] > ORDER_TIMEOUT_SECONDS:
+        for oid, order in list(self.active_orders.items()):
+            timeout = order.get("timeout_seconds", ORDER_TIMEOUT_SECONDS)
+            is_expired = (now - order["created_at"]) > timeout
+
+            # Invalidation proactive SMC : si le cours a déjà rallié le Take Profit sans nous exécuter
+            is_missed_train = False
+            if current_market_prices and isinstance(current_market_prices, dict):
+                sym = order.get("symbol")
+                cur_px = current_market_prices.get(sym, 0.0)
+                if cur_px > 0:
+                    if order["is_long"] and cur_px >= order["take_profit"]:
+                        is_missed_train = True
+                    elif not order["is_long"] and cur_px <= order["take_profit"]:
+                        is_missed_train = True
+
+            if is_expired or is_missed_train:
                 to_remove.append(oid)
                 cancelled_count += 1
-                print(f"[Execution Engine] Ordre limite expiré et annulé : {oid}")
+                reason = "Objectif TP atteint sans nous (Missed Train)" if is_missed_train else f"Expiration ({timeout//60} min)"
+                print(f"[Execution Engine] Ordre limite annulé [{reason}] : {oid}")
 
         for oid in to_remove:
             del self.active_orders[oid]
