@@ -106,6 +106,56 @@ def test_paper_trading_basket_endpoints():
     assert reset_data["baskets"]["alpha"]["current_balance"] == 100.0
 
 
+def test_api_notifications_endpoints(tmp_path):
+    from unittest.mock import patch, MagicMock
+
+    # 1. Status
+    resp = client.get("/api/notifications/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "telegram_configured" in data
+    assert "discord_configured" in data
+
+    # 2. Detect Chat ID (Mock)
+    with patch("requests.get") as mock_get:
+        mock_get.return_value = MagicMock(
+            json=lambda: {
+                "ok": True,
+                "result": [
+                    {
+                        "message": {
+                            "chat": {"id": 998877, "first_name": "Trader"}
+                        }
+                    }
+                ]
+            }
+        )
+        det_resp = client.post("/api/notifications/telegram/detect", json={"token": "123:ABC"})
+        assert det_resp.status_code == 200
+        det_data = det_resp.json()
+        assert det_data["success"] is True
+        assert det_data["chat_id"] == "998877"
+
+    # 3. Test Message (Mock)
+    with patch("requests.post") as mock_post:
+        mock_post.return_value = MagicMock(json=lambda: {"ok": True, "result": {"message_id": 1}})
+        test_resp = client.post("/api/notifications/telegram/test", json={"token": "123:ABC", "chat_id": "998877"})
+        assert test_resp.status_code == 200
+        assert test_resp.json()["success"] is True
+
+    # 4. Save Config (Using tmp .env)
+    fake_env = tmp_path / ".env"
+    with patch("dashboard.app.BASE_DIR", tmp_path):
+        save_resp = client.post("/api/notifications/telegram/save", json={"token": "123:ABC", "chat_id": "998877"})
+        assert save_resp.status_code == 200
+        assert save_resp.json()["status"] == "success"
+        assert fake_env.exists()
+        content = fake_env.read_text()
+        assert "TELEGRAM_BOT_TOKEN=123:ABC" in content
+        assert "TELEGRAM_CHAT_ID=998877" in content
+
+
+
 
 
 

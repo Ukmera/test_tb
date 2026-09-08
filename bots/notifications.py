@@ -56,6 +56,100 @@ class NotificationManager:
         except Exception as e:
             print(f"[Notifications Warning] Telegram error: {e}")
 
+    def update_telegram_credentials(self, token: str, chat_id: str):
+        """Met à jour les identifiants Telegram en mémoire."""
+        self.tg_token = token.strip()
+        self.tg_chat_id = chat_id.strip()
+        self.enabled = bool(self.discord_url or (self.tg_token and self.tg_chat_id))
+
+    def get_status(self) -> Dict[str, Any]:
+        """Retourne le statut actuel des intégrations de notifications."""
+        masked_token = ""
+        if self.tg_token:
+            masked_token = self.tg_token[:6] + "..." + self.tg_token[-4:] if len(self.tg_token) > 10 else "***"
+        return {
+            "telegram_configured": bool(self.tg_token and self.tg_chat_id),
+            "telegram_token_masked": masked_token,
+            "telegram_chat_id": self.tg_chat_id,
+            "discord_configured": bool(self.discord_url)
+        }
+
+    def detect_chat_id(self, token: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Interroge l'API Telegram getUpdates pour trouver automatiquement le chat_id
+        de l'utilisateur ayant envoyé /start à son bot.
+        """
+        tgt = (token or self.tg_token or "").strip()
+        if not tgt:
+            return {"success": False, "error": "Token Telegram non fourni."}
+
+        try:
+            url = f"https://api.telegram.org/bot{tgt}/getUpdates"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            if not data.get("ok"):
+                return {"success": False, "error": data.get("description", "Erreur Telegram.")}
+
+            results = data.get("result", [])
+            if not results:
+                return {
+                    "success": False,
+                    "error": "Aucun message détecté. Veuillez ouvrir votre bot sur Telegram, cliquer sur 'Démarrer' (ou envoyer /start), puis réessayez."
+                }
+
+            # Récupérer le message le plus récent
+            latest = results[-1]
+            chat = latest.get("message", {}).get("chat") or latest.get("my_chat_member", {}).get("chat", {})
+            chat_id = str(chat.get("id", ""))
+            first_name = chat.get("first_name", "")
+            username = chat.get("username", "")
+
+            if not chat_id:
+                return {"success": False, "error": "Impossible d'extraire le chat_id des mises à jour récentes."}
+
+            return {
+                "success": True,
+                "chat_id": chat_id,
+                "first_name": first_name,
+                "username": username
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Erreur réseau lors de la détection: {e}"}
+
+    def send_test_message(self, token: Optional[str] = None, chat_id: Optional[str] = None) -> Dict[str, Any]:
+        """Envoie un message de test immédiat vers Telegram."""
+        tgt = (token or self.tg_token or "").strip()
+        cid = (chat_id or self.tg_chat_id or "").strip()
+
+        if not tgt or not cid:
+            return {"success": False, "error": "Token ou Chat ID manquant."}
+
+        test_msg = (
+            "🚀 <b>GPTHEIST DESK : Connexion Smartphone Réussie !</b>\n\n"
+            "📱 Votre téléphone est désormais synchronisé avec le desk institutionnel.\n"
+            "Vous recevrez automatiquement ici :\n"
+            "• ⏳ Nouveaux ordres Limits posés\n"
+            "• ⚡ Exécutions de positions en direct\n"
+            "• 🛡️ Sécurisation Breakeven (+1R)\n"
+            "• 💰 Clôtures TP/SL avec bilan PnL net & ROI.\n\n"
+            "<i>Système opérationnel 24/7 sur Render.</i>"
+        )
+        url = f"https://api.telegram.org/bot{tgt}/sendMessage"
+        payload = {
+            "chat_id": cid,
+            "text": test_msg,
+            "parse_mode": "HTML"
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=5)
+            data = resp.json()
+            if data.get("ok"):
+                return {"success": True, "message": "Notification de test envoyée avec succès sur votre smartphone !"}
+            return {"success": False, "error": data.get("description", "Erreur Telegram.")}
+        except Exception as e:
+            return {"success": False, "error": f"Erreur de connexion: {e}"}
+
+
     def notify_order_placed(self, basket_name: str, order: Dict[str, Any]):
         """Notifie le placement d'un nouvel ordre limite Maker."""
         sym = order.get("symbol", "")

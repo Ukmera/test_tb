@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadAgentsStatus();
         await loadPaperTradingStatus();
         await loadBacktestHistory();
+        await loadNotificationStatus();
     } catch (e) {
         console.error("Erreur statut initial:", e);
     }
@@ -145,6 +146,18 @@ function initChart() {
             });
         }
     });
+
+    if (window.ResizeObserver && chartContainer) {
+        const ro = new ResizeObserver(() => {
+            if (chart && chartContainer.clientWidth > 40 && chartContainer.clientHeight > 40) {
+                chart.applyOptions({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight,
+                });
+            }
+        });
+        ro.observe(chartContainer);
+    }
 }
 
 function setupEventListeners() {
@@ -323,6 +336,11 @@ function setupEventListeners() {
     if (btnRun) {
         btnRun.addEventListener("click", triggerCustomBacktest);
     }
+
+    // 8. Modules d'interactions & Responsive
+    setupTelegramModalListeners();
+    setupAgentDeckToggle();
+    setupMobileNavigation();
 }
 
 async function triggerCustomBacktest() {
@@ -1378,3 +1396,288 @@ function stepBackward() {
         goToIndex(currentPlaybackIndex - 1);
     }
 }
+
+
+// ==========================================================================
+// Notifications & Telegram Smartphone Integration
+// ==========================================================================
+async function loadNotificationStatus() {
+    try {
+        const resp = await fetch("/api/notifications/status");
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        const headerStatus = document.getElementById("header-tg-status");
+        const btnHeader = document.getElementById("btn-open-telegram");
+        const modalDot = document.getElementById("tg-modal-dot");
+        const modalStatus = document.getElementById("tg-modal-status-text");
+        const inputToken = document.getElementById("input-tg-token");
+        const inputChatId = document.getElementById("input-tg-chat-id");
+
+        if (data.telegram_configured) {
+            if (headerStatus) headerStatus.textContent = "Telegram 🟢";
+            if (btnHeader) btnHeader.classList.add("connected");
+            if (modalDot) modalDot.classList.add("connected");
+            if (modalStatus) modalStatus.textContent = `Connecté au smartphone (Chat ID: ${data.telegram_chat_id})`;
+            if (inputToken && data.telegram_token_masked) inputToken.placeholder = `Token actif : ${data.telegram_token_masked}`;
+            if (inputChatId && data.telegram_chat_id) inputChatId.value = data.telegram_chat_id;
+        } else {
+            if (headerStatus) headerStatus.textContent = "Telegram 📱";
+            if (btnHeader) btnHeader.classList.remove("connected");
+            if (modalDot) modalDot.classList.remove("connected");
+            if (modalStatus) modalStatus.textContent = "Non configuré (en attente du token)";
+        }
+    } catch (e) {
+        console.warn("[Notifications] Impossible de charger le statut:", e);
+    }
+}
+
+function setupTelegramModalListeners() {
+    const btnOpen = document.getElementById("btn-open-telegram");
+    const modal = document.getElementById("modal-telegram");
+    const btnClose = document.getElementById("btn-close-tg-modal");
+    const btnDetect = document.getElementById("btn-tg-detect");
+    const btnTest = document.getElementById("btn-tg-test");
+    const btnSave = document.getElementById("btn-tg-save");
+    const inputToken = document.getElementById("input-tg-token");
+    const inputChat = document.getElementById("input-tg-chat-id");
+    const feedback = document.getElementById("tg-action-feedback");
+    const detectResult = document.getElementById("tg-detect-result");
+
+    if (btnOpen && modal) {
+        btnOpen.addEventListener("click", () => {
+            modal.style.display = "flex";
+            loadNotificationStatus();
+        });
+    }
+
+    if (btnClose && modal) {
+        btnClose.addEventListener("click", () => {
+            modal.style.display = "none";
+        });
+    }
+
+    if (modal) {
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) modal.style.display = "none";
+        });
+    }
+
+    if (btnDetect) {
+        btnDetect.addEventListener("click", async () => {
+            const token = inputToken ? inputToken.value.trim() : "";
+            if (!token) {
+                if (detectResult) {
+                    detectResult.style.display = "block";
+                    detectResult.style.background = "rgba(255, 61, 113, 0.15)";
+                    detectResult.style.color = "#ff3d71";
+                    detectResult.textContent = "⚠️ Veuillez coller votre Token Telegram d'abord (Étape 2).";
+                }
+                return;
+            }
+
+            if (detectResult) {
+                detectResult.style.display = "block";
+                detectResult.style.background = "rgba(0, 210, 255, 0.15)";
+                detectResult.style.color = "#00d2ff";
+                detectResult.textContent = "🔍 Interrogation de Telegram en cours...";
+            }
+
+            try {
+                const resp = await fetch("/api/notifications/telegram/detect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token })
+                });
+                const res = await resp.json();
+                if (res.success) {
+                    if (inputChat) inputChat.value = res.chat_id;
+                    if (detectResult) {
+                        detectResult.style.background = "rgba(0, 230, 118, 0.15)";
+                        detectResult.style.color = "#00e676";
+                        detectResult.innerHTML = `✅ Chat ID <b>${res.chat_id}</b> détecté avec succès (${res.first_name || ''}) !`;
+                    }
+                } else {
+                    if (detectResult) {
+                        detectResult.style.background = "rgba(255, 61, 113, 0.15)";
+                        detectResult.style.color = "#ff3d71";
+                        detectResult.textContent = `❌ ${res.error || 'Erreur lors de la détection.'}`;
+                    }
+                }
+            } catch (err) {
+                if (detectResult) {
+                    detectResult.style.background = "rgba(255, 61, 113, 0.15)";
+                    detectResult.style.color = "#ff3d71";
+                    detectResult.textContent = `❌ Erreur réseau: ${err}`;
+                }
+            }
+        });
+    }
+
+    if (btnTest) {
+        btnTest.addEventListener("click", async () => {
+            const token = inputToken ? inputToken.value.trim() : "";
+            const chatId = inputChat ? inputChat.value.trim() : "";
+
+            if (feedback) {
+                feedback.style.color = "#00d2ff";
+                feedback.textContent = "🚀 Envoi du message test vers votre smartphone...";
+            }
+
+            try {
+                const resp = await fetch("/api/notifications/telegram/test", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token, chat_id: chatId })
+                });
+                const res = await resp.json();
+                if (res.success) {
+                    if (feedback) {
+                        feedback.style.color = "#00e676";
+                        feedback.textContent = `✅ ${res.message}`;
+                    }
+                } else {
+                    if (feedback) {
+                        feedback.style.color = "#ff3d71";
+                        feedback.textContent = `❌ ${res.error || "Erreur d'envoi."}`;
+                    }
+                }
+            } catch (err) {
+                if (feedback) {
+                    feedback.style.color = "#ff3d71";
+                    feedback.textContent = `❌ Erreur réseau: ${err}`;
+                }
+            }
+        });
+    }
+
+    if (btnSave) {
+        btnSave.addEventListener("click", async () => {
+            const token = inputToken ? inputToken.value.trim() : "";
+            const chatId = inputChat ? inputChat.value.trim() : "";
+
+            if (!token || !chatId) {
+                if (feedback) {
+                    feedback.style.color = "#ff3d71";
+                    feedback.textContent = "⚠️ Veuillez renseigner le Token et le Chat ID avant de sauvegarder.";
+                }
+                return;
+            }
+
+            try {
+                const resp = await fetch("/api/notifications/telegram/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token, chat_id: chatId })
+                });
+                const res = await resp.json();
+                if (res.status === "success") {
+                    if (feedback) {
+                        feedback.style.color = "#00e676";
+                        feedback.textContent = "💾 Identifiants enregistrés ! Le desk vous notifiera en temps réel.";
+                    }
+                    await loadNotificationStatus();
+                    setTimeout(() => {
+                        if (modal) modal.style.display = "none";
+                    }, 1500);
+                } else {
+                    if (feedback) {
+                        feedback.style.color = "#ff3d71";
+                        feedback.textContent = `❌ ${res.detail || "Erreur d'enregistrement."}`;
+                    }
+                }
+            } catch (err) {
+                if (feedback) {
+                    feedback.style.color = "#ff3d71";
+                    feedback.textContent = `❌ Erreur réseau: ${err}`;
+                }
+            }
+        });
+    }
+}
+
+// ==========================================================================
+// Agent Deck Collapse Toggle
+// ==========================================================================
+function setupAgentDeckToggle() {
+    const btnToggle = document.getElementById("btn-toggle-agents");
+    const container = document.getElementById("agent-deck-container");
+    if (btnToggle && container) {
+        btnToggle.addEventListener("click", () => {
+            container.classList.toggle("collapsed");
+            const isCollapsed = container.classList.contains("collapsed");
+            btnToggle.textContent = isCollapsed ? "▲ Afficher" : "▼ Masquer";
+            if (chart) {
+                const chartContainer = document.getElementById("trading-chart");
+                if (chartContainer) {
+                    setTimeout(() => {
+                        chart.applyOptions({
+                            width: chartContainer.clientWidth,
+                            height: chartContainer.clientHeight,
+                        });
+                    }, 100);
+                }
+            }
+        });
+    }
+}
+
+// ==========================================================================
+// Mobile Viewport Navigation
+// ==========================================================================
+function setupMobileNavigation() {
+    const tabs = document.querySelectorAll(".mob-tab-btn");
+    const chartCol = document.querySelector(".chart-column");
+    const sidebar = document.querySelector(".sidebar");
+    const basketRibbon = document.getElementById("basket-ribbon");
+    const agentDeck = document.getElementById("agent-deck-container");
+
+    tabs.forEach(btn => {
+        btn.addEventListener("click", () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            btn.classList.add("active");
+            const view = btn.dataset.view;
+
+            if (view === "chart") {
+                if (chartCol) chartCol.style.display = "flex";
+                if (sidebar) sidebar.style.display = "none";
+                if (chart) {
+                    setTimeout(() => {
+                        const chartContainer = document.getElementById("trading-chart");
+                        if (chartContainer) {
+                            chart.applyOptions({
+                                width: chartContainer.clientWidth,
+                                height: chartContainer.clientHeight,
+                            });
+                        }
+                    }, 50);
+                }
+            } else if (view === "baskets") {
+                if (chartCol) chartCol.style.display = "flex";
+                if (basketRibbon) basketRibbon.scrollIntoView({ behavior: "smooth" });
+            } else if (view === "activity") {
+                if (chartCol) chartCol.style.display = "none";
+                if (sidebar) {
+                    sidebar.style.display = "flex";
+                    const tabAct = document.getElementById("tab-btn-activity");
+                    if (tabAct) tabAct.click();
+                }
+            } else if (view === "trades") {
+                if (chartCol) chartCol.style.display = "none";
+                if (sidebar) {
+                    sidebar.style.display = "flex";
+                    const tabTr = document.getElementById("tab-btn-trades");
+                    if (tabTr) tabTr.click();
+                }
+            } else if (view === "agents") {
+                if (chartCol) chartCol.style.display = "flex";
+                if (sidebar) sidebar.style.display = "none";
+                if (agentDeck) {
+                    agentDeck.classList.remove("collapsed");
+                    agentDeck.scrollIntoView({ behavior: "smooth" });
+                }
+            }
+        });
+    });
+}
+

@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from config.settings import (
     BASE_DIR,
@@ -101,6 +102,78 @@ def set_paper_trading_basket(basket: str = "alpha") -> Dict[str, Any]:
 def reset_paper_trading() -> Dict[str, Any]:
     """Réinitialise les portefeuilles de simulation à 100$ et efface l'historique persistant."""
     return paper_trader.reset_state()
+
+
+class TelegramDetectRequest(BaseModel):
+    token: str
+
+
+class TelegramTestRequest(BaseModel):
+    token: Optional[str] = None
+    chat_id: Optional[str] = None
+
+
+class TelegramSaveRequest(BaseModel):
+    token: str
+    chat_id: str
+
+
+@app.get("/api/notifications/status")
+def get_notifications_status() -> Dict[str, Any]:
+    """Retourne l'état de configuration des alertes push (Telegram & Discord)."""
+    return paper_trader.notifier.get_status()
+
+
+@app.post("/api/notifications/telegram/detect")
+def detect_telegram_chat_id(req: TelegramDetectRequest) -> Dict[str, Any]:
+    """Détecte automatiquement le chat_id de l'utilisateur via l'API getUpdates de Telegram."""
+    return paper_trader.notifier.detect_chat_id(token=req.token)
+
+
+@app.post("/api/notifications/telegram/test")
+def test_telegram_notification(req: TelegramTestRequest) -> Dict[str, Any]:
+    """Envoie une notification de test immédiate sur le smartphone de l'utilisateur."""
+    return paper_trader.notifier.send_test_message(token=req.token, chat_id=req.chat_id)
+
+
+@app.post("/api/notifications/telegram/save")
+def save_telegram_config(req: TelegramSaveRequest) -> Dict[str, Any]:
+    """Enregistre les identifiants Telegram dans le fichier .env et met à jour l'instance active."""
+    token = req.token.strip()
+    chat_id = req.chat_id.strip()
+    paper_trader.notifier.update_telegram_credentials(token, chat_id)
+
+    # Sauvegarde persistante dans .env local
+    env_path = BASE_DIR / ".env"
+    existing_lines = []
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            existing_lines = f.readlines()
+
+    keys_to_set = {"TELEGRAM_BOT_TOKEN": token, "TELEGRAM_CHAT_ID": chat_id}
+    new_lines = []
+    for line in existing_lines:
+        line_clean = line.strip()
+        if "=" in line_clean and not line_clean.startswith("#"):
+            k = line_clean.split("=", 1)[0].strip()
+            if k in keys_to_set:
+                new_lines.append(f"{k}={keys_to_set[k]}\n")
+                del keys_to_set[k]
+                continue
+        new_lines.append(line)
+
+    for k, v in keys_to_set.items():
+        new_lines.append(f"{k}={v}\n")
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+    return {
+        "status": "success",
+        "message": "Identifiants Telegram enregistrés avec succès.",
+        "notifier_status": paper_trader.notifier.get_status()
+    }
+
 
 
 

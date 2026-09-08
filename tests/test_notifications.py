@@ -50,3 +50,38 @@ def test_notification_manager_discord_and_telegram_calls(mock_post):
         "exit_price": 100.0
     })
     assert mock_post.call_count == 2
+
+
+@patch("requests.get")
+def test_detect_chat_id_success(mock_get):
+    mock_get.return_value = MagicMock(
+        json=lambda: {
+            "ok": True,
+            "result": [
+                {
+                    "update_id": 1001,
+                    "message": {
+                        "message_id": 1,
+                        "from": {"id": 123456789, "first_name": "Sacha"},
+                        "chat": {"id": 123456789, "first_name": "Sacha", "type": "private"},
+                        "text": "/start"
+                    }
+                }
+            ]
+        }
+    )
+    mgr = NotificationManager(telegram_token="dummy_token")
+    res = mgr.detect_chat_id("dummy_token")
+    assert res["success"] is True
+    assert res["chat_id"] == "123456789"
+    assert res["first_name"] == "Sacha"
+
+
+@patch("requests.post")
+def test_send_test_message_success(mock_post):
+    mock_post.return_value = MagicMock(json=lambda: {"ok": True, "result": {"message_id": 123}})
+    mgr = NotificationManager()
+    res = mgr.send_test_message(token="dummy_token", chat_id="123456789")
+    assert res["success"] is True
+    assert "succès" in res["message"]
+

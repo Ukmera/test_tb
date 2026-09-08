@@ -1089,5 +1089,369 @@ header {
 .basket-status-dot.in_pos { background: rgba(0, 230, 118, 0.2); color: var(--bull-green); }
 .basket-status-dot.order_pending { background: rgba(255, 176, 0, 0.2); color: #ffb000; }
 
+/* ==========================================================================
+   Header Telegram Pill & Controls
+   ========================================================================== */
+.btn-telegram-pill {
+  background: rgba(41, 98, 255, 0.12);
+  border: 1px solid rgba(41, 98, 255, 0.35);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-telegram-pill:hover {
+  background: rgba(41, 98, 255, 0.25);
+  border-color: #00d2ff;
+  box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+
+.btn-telegram-pill.connected {
+  border-color: rgba(0, 230, 118, 0.5);
+  background: rgba(0, 230, 118, 0.12);
+  color: var(--bull-green);
+}
+
+.btn-xs-toggle {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-xs-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.agent-deck-container.collapsed {
+  max-height: 32px;
+}
+
+.agent-deck-container.collapsed .agent-deck-grid {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Mobile Navigation Switcher
+   ========================================================================== */
+.mobile-nav-bar {
+  display: none;
+  background: #11151f;
+  border-bottom: 1px solid var(--border-color);
+  padding: 6px 12px;
+  gap: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mob-tab-btn {
+  background: #191e2b;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: all 0.15s ease;
+}
+
+.mob-tab-btn.active {
+  background: #2962ff;
+  color: #fff;
+  border-color: #00d2ff;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(41, 98, 255, 0.4);
+}
+
+/* ==========================================================================
+   Modal Overlay & Styling (Telegram Mobile Setup)
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(5, 8, 16, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.modal-card {
+  background: #141824;
+  border: 1px solid #2a3144;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #1a1f2e;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.modal-close-btn:hover {
+  color: #fff;
+}
+
+.modal-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tg-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #181d2a;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.status-dot-sm {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+}
+
+.status-dot-sm.connected {
+  background-color: var(--bull-green);
+  box-shadow: 0 0 6px var(--bull-green);
+}
+
+.tg-guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tg-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-main);
+}
+
+.step-num {
+  background: linear-gradient(135deg, #00d2ff, #2962ff);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.7rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.form-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.form-input {
+  background: #1a1e2b;
+  border: 1px solid #2d354a;
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.form-input:focus {
+  border-color: #00d2ff;
+  box-shadow: 0 0 6px rgba(0, 210, 255, 0.25);
+}
+
+.tg-cloud-note {
+  background: rgba(0, 210, 255, 0.06);
+  border: 1px solid rgba(0, 210, 255, 0.2);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 0.72rem;
+  color: #d1d4dc;
+  line-height: 1.4;
+  margin-top: 14px;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints & Mobile Adaptability
+   ========================================================================== */
+@media (max-width: 1200px) {
+  .header-center-metrics {
+    gap: 12px;
+  }
+  .hud-value {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 900px) {
+  body {
+    height: auto !important;
+    min-height: 100vh;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .header-left {
+    justify-content: space-between;
+  }
+
+  .header-center-metrics {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    background: #11151f;
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+
+  .approval-gate-container {
+    width: 100%;
+  }
+
+  .control-ribbon {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .mobile-nav-bar {
+    display: flex !important;
+  }
+
+  .basket-cards-container {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 8px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .basket-card {
+    min-width: 220px;
+    flex: 0 0 220px;
+  }
+
+  .main-container {
+    grid-template-columns: 1fr !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chart-column {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .chart-area {
+    min-height: 380px;
+    height: 420px;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-height: 350px;
+  }
+
+  .agent-deck-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .header-center-metrics {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .agent-deck-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .smc-validator-toolbar {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 10px;
+  }
+
+  .playback-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+
 
 
