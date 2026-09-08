@@ -1,5 +1,5 @@
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from config.settings import (
     HYPERLIQUID_TESTNET,
     HYPERLIQUID_WALLET_ADDRESS,
@@ -92,20 +92,27 @@ class ExecutionEngine:
 
         return cancelled_count
 
-    def update_live_market_price(self, current_price: float) -> Optional[Dict[str, Any]]:
+    def update_live_market_price(self, current_price: Union[float, Dict[str, float]]) -> Optional[Dict[str, Any]]:
         """
         Simule le remplissage des ordres limites et applique la gestion dynamique en 3 tiers
         avec armement automatique du True Breakeven et trailing runner en live.
+        Supporte soit un prix unitaire (float), soit un dictionnaire de prix par symbole (dict).
         """
         if not self.active_orders and not self.active_position:
             return None
 
+        price_dict = current_price if isinstance(current_price, dict) else {}
+
         # 1. Vérification des ordres limites en attente
         to_fill = []
         for oid, order in list(self.active_orders.items()):
-            if order["is_long"] and current_price <= order["entry_price"]:
+            sym = order.get("symbol")
+            px = price_dict.get(sym, current_price) if isinstance(current_price, dict) else current_price
+            if px is None or not isinstance(px, (int, float)) or px <= 0:
+                continue
+            if order["is_long"] and px <= order["entry_price"]:
                 to_fill.append(oid)
-            elif not order["is_long"] and current_price >= order["entry_price"]:
+            elif not order["is_long"] and px >= order["entry_price"]:
                 to_fill.append(oid)
 
         for oid in to_fill:
@@ -119,6 +126,12 @@ class ExecutionEngine:
         # 2. Vérification de la position ouverte
         if self.active_position:
             pos = self.active_position
+            pos_sym = pos.get("symbol")
+            pos_px = price_dict.get(pos_sym, current_price) if isinstance(current_price, dict) else current_price
+            if pos_px is None or not isinstance(pos_px, (int, float)) or pos_px <= 0:
+                return None
+            current_price = pos_px
+
             is_long = pos["is_long"]
             entry_px = pos["entry_price"]
             risk_dist = abs(entry_px - pos["initial_stop_loss"])

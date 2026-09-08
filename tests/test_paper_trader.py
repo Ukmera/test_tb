@@ -124,3 +124,38 @@ def test_paper_trading_persistence_save_load_and_reset(tmp_path):
     assert len(daemon_restarted.baskets["alpha"].closed_trades) == 0
 
 
+def test_paper_trading_daemon_fills_active_order_on_step():
+    """Vérifie qu'un ordre limite Maker placé dans une stratégie est automatiquement exécuté (Filled) lors de step()."""
+    daemon = PaperTradingDaemon(model="B", initial_capital=100.0, session_filter=False)
+    strat = daemon.baskets["alpha"].strategies["scalp"]
+
+    # Placer un ordre limite Long sur SOL à 100.0$
+    proposal = TradeOrderProposal(
+        symbol="SOL",
+        is_long=True,
+        entry_price=100.0,
+        stop_loss=98.0,
+        take_profit=104.0,
+        position_size=1.0,
+        notional_value=100.0,
+        leverage=1.0,
+        risk_amount_usd=2.0,
+        risk_reward_ratio=2.0
+    )
+    order_data = strat.execution.place_bracket_order(proposal)
+    assert len(strat.execution.active_orders) == 1
+    assert strat.execution.active_position is None
+
+    # Simuler le prix de marché SOL qui descend à 99.8$
+    daemon.current_market_prices["SOL"] = 99.8
+    # Exécuter un cycle de mise à jour des ordres
+    strat.execution.update_live_market_price(daemon.current_market_prices)
+
+    # L'ordre doit être exécuté et devenir une position active
+    assert len(strat.execution.active_orders) == 0
+    assert strat.execution.active_position is not None
+    assert strat.execution.active_position["status"] == "FILLED"
+    assert strat.execution.active_position["symbol"] == "SOL"
+
+
+

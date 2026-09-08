@@ -545,47 +545,47 @@ class PaperTradingDaemon:
             for strat_id, strat in basket.strategies.items():
                 had_active_pos = bool(strat.execution.active_position)
 
-                # Mise à jour des positions actives
-                if strat.execution.active_position:
-                    pos_sym = strat.execution.active_position.get("symbol")
-                    if pos_sym and self.current_market_prices.get(pos_sym, 0) > 0:
-                        closed_trade = strat.execution.update_live_market_price(self.current_market_prices[pos_sym])
-                        if closed_trade:
-                            pnl = closed_trade["pnl_usd"]
-                            strat.current_balance += pnl
-                            for p in strat.professors.values():
-                                p.balance = strat.current_balance
-                                p.risk_mgr.update_balance(strat.current_balance)
+                # Mise à jour des ordres limites en attente et des positions actives
+                if strat.execution.active_orders or strat.execution.active_position:
+                    closed_trade = strat.execution.update_live_market_price(self.current_market_prices)
+                    if closed_trade:
+                        pnl = closed_trade["pnl_usd"]
+                        strat.current_balance += pnl
+                        for p in strat.professors.values():
+                            p.balance = strat.current_balance
+                            p.risk_mgr.update_balance(strat.current_balance)
 
-                            risk_usd = closed_trade.get("notional_usd", 10.0) * 0.01
-                            r_multiple = round(pnl / max(0.1, risk_usd), 2)
-                            if pos_sym in strat.professors:
-                                strat.professors[pos_sym].palermo.record_trade_result(r_multiple)
+                        risk_usd = closed_trade.get("notional_usd", 10.0) * 0.01
+                        r_multiple = round(pnl / max(0.1, risk_usd), 2)
+                        pos_sym = closed_trade.get("symbol", strat.symbols[0])
+                        if pos_sym in strat.professors:
+                            strat.professors[pos_sym].palermo.record_trade_result(r_multiple)
 
-                            closed_trade["closed_balance"] = round(strat.current_balance, 2)
-                            closed_trade["r_multiple"] = r_multiple
-                            strat.closed_trades.append(closed_trade)
-                            state_changed = True
+                        closed_trade["closed_balance"] = round(strat.current_balance, 2)
+                        closed_trade["r_multiple"] = r_multiple
+                        strat.closed_trades.append(closed_trade)
+                        state_changed = True
 
-                            # Alerte mobile de trade clôturé
-                            tag = f"{basket.name} • {strat.name}"
-                            self.notifier.notify_trade_closed(tag, closed_trade)
+                        # Alerte mobile de trade clôturé
+                        tag = f"{basket.name} • {strat.name}"
+                        self.notifier.notify_trade_closed(tag, closed_trade)
 
-                            now_str = time.strftime("%H:%M:%S")
-                            if pos_sym in strat.professors:
-                                strat.professors[pos_sym].activity_log.append(
-                                    type("Msg", (), {
-                                        "timestamp": now_str,
-                                        "agent": "HELSINKI",
-                                        "status": "CLEARED" if pnl >= 0 else "VETO",
-                                        "message": f"[{tag}] Position {pos_sym} clôturée [{closed_trade['exit_reason']}] PnL: {pnl:+.2f}$ ({r_multiple:+.1f}R) | Solde: {strat.current_balance:.2f}$"
-                                    })()
-                                )
+                        now_str = time.strftime("%H:%M:%S")
+                        if pos_sym in strat.professors:
+                            strat.professors[pos_sym].activity_log.append(
+                                type("Msg", (), {
+                                    "timestamp": now_str,
+                                    "agent": "HELSINKI",
+                                    "status": "CLEARED" if pnl >= 0 else "VETO",
+                                    "message": f"[{tag}] Position {pos_sym} clôturée [{closed_trade['exit_reason']}] PnL: {pnl:+.2f}$ ({r_multiple:+.1f}R) | Solde: {strat.current_balance:.2f}$"
+                                })()
+                            )
 
                 # Notification si un ordre limite vient d'être exécuté (Filled)
                 if not had_active_pos and strat.execution.active_position:
                     tag = f"{basket.name} • {strat.name}"
                     self.notifier.notify_position_filled(tag, strat.execution.active_position)
+                    state_changed = True
 
                 # Notification si le True Breakeven vient d'être activé
                 if strat.execution.active_position and strat.execution.active_position.get("be_activated") and not strat.execution.active_position.get("_be_notified"):
