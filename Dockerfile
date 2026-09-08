@@ -1,4 +1,4 @@
-﻿FROM python:3.12-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -10,4 +10,4 @@ COPY . .
 ENV PORT=8088
 EXPOSE 8088
 
-CMD ["uvicorn", "dashboard.app:app", "--host", "0.0.0.0", "--port", "8088"]
+CMD ["sh", "-c", "uvicorn dashboard.app:app --host 0.0.0.0 --port ${PORT:-8088}"]
