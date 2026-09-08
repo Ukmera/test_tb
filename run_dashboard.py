@@ -19,12 +19,26 @@ def find_free_port(host: str, starting_port: int, max_attempts: int = 50) -> int
     return starting_port
 
 
+def get_local_ip() -> str:
+    """Récupère l'adresse IP locale sur le réseau local Wi-Fi."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
 def main():
     actual_port = find_free_port(DASHBOARD_HOST, DASHBOARD_PORT)
+    local_ip = get_local_ip()
 
     print("=" * 60)
     print("🚀 DÉMARRAGE DU DASHBOARD VISUEL INSTITUTIONNEL SMC")
-    print(f"🌐 URL d'accès vérifiée et disponible : http://{DASHBOARD_HOST}:{actual_port}")
+    print(f"🌐 Accès PC Local       : http://localhost:{actual_port}")
+    print(f"📱 Accès Mobile (Wi-Fi) : http://{local_ip}:{actual_port}")
     print("=" * 60)
     uvicorn.run("dashboard.app:app", host=DASHBOARD_HOST, port=actual_port, reload=False)
 
