@@ -2,7 +2,10 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0d14">
     <title>GPTHEIST DESK | Hyperliquid SMC Quant Terminal</title>
     <link rel="stylesheet" href="/static/style.css">
     <!-- TradingView Lightweight Charts Library (Local & Offline Capable) -->
@@ -216,6 +219,9 @@
 
         <!-- Main Column: Chart + Agent Deck -->
         <div class="chart-column">
+            <!-- Floating Exit Fullscreen Button (Accessible on Mobile & Desktop) -->
+            <button id="btn-exit-fullscreen" class="btn-exit-fullscreen" title="Quitter le plein écran">✕ Quitter Plein Écran</button>
+
             <!-- Playback Scrubber Bar -->
             <div id="playback-bar" class="playback-bar" style="display: none;">
                 <div class="playback-controls">

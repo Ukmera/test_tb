@@ -83,8 +83,9 @@ function initChart() {
     }
 
     chartContainer.innerHTML = "";
+    const isMobile = window.innerWidth <= 900;
     const width = chartContainer.clientWidth || (window.innerWidth - 360);
-    const height = chartContainer.clientHeight || 500;
+    const height = chartContainer.clientHeight || (isMobile ? 380 : 500);
 
     chart = LightweightCharts.createChart(chartContainer, {
         width: width,
@@ -92,7 +93,7 @@ function initChart() {
         layout: {
             backgroundColor: "#131722",
             textColor: "#d1d4dc",
-            fontSize: 12,
+            fontSize: isMobile ? 11 : 12,
             fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         },
         grid: {
@@ -118,7 +119,7 @@ function initChart() {
             mouseWheel: false,
             pressedMouseMove: true,
             horzTouchDrag: true,
-            vertTouchDrag: true,
+            vertTouchDrag: !isMobile, // Permet le défilement vertical fluide de la page sur mobile
         },
         handleScale: {
             mouseWheel: false,
@@ -158,12 +159,47 @@ function initChart() {
     }
 
     window.addEventListener("resize", () => {
+        const chartCol = document.querySelector(".chart-column");
+        const sidebar = document.querySelector(".sidebar");
+        const isNowMobile = window.innerWidth <= 900;
+
+        if (!isNowMobile) {
+            if (chartCol) chartCol.style.display = "";
+            if (sidebar) sidebar.style.display = "";
+        }
+
         if (chart && chartContainer) {
             chart.applyOptions({
                 width: chartContainer.clientWidth,
                 height: chartContainer.clientHeight,
+                handleScroll: {
+                    mouseWheel: false,
+                    pressedMouseMove: true,
+                    horzTouchDrag: true,
+                    vertTouchDrag: !isNowMobile,
+                }
             });
         }
+    });
+
+    window.addEventListener("orientationchange", () => {
+        setTimeout(() => {
+            const chartContainer = document.getElementById("trading-chart");
+            const isNowMobile = window.innerWidth <= 900;
+            if (chart && chartContainer) {
+                chart.applyOptions({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight,
+                    handleScroll: {
+                        mouseWheel: false,
+                        pressedMouseMove: true,
+                        horzTouchDrag: true,
+                        vertTouchDrag: !isNowMobile,
+                    }
+                });
+                if (chart.timeScale) chart.timeScale().fitContent();
+            }
+        }, 150);
     });
 
     if (window.ResizeObserver && chartContainer) {
@@ -332,45 +368,61 @@ function setupEventListeners() {
 
     // 4c. Mode Plein Écran pour le graphique TradingView
     const btnFullscreen = document.getElementById("btn-fullscreen-chart");
+    const btnExitFs = document.getElementById("btn-exit-fullscreen");
     const chartCol = document.querySelector(".chart-column");
+
+    function setFullscreenMode(enable) {
+        if (!chartCol) return;
+        if (enable) {
+            chartCol.classList.add("fullscreen-mode");
+        } else {
+            chartCol.classList.remove("fullscreen-mode");
+        }
+        const isFs = chartCol.classList.contains("fullscreen-mode");
+        if (btnFullscreen) btnFullscreen.textContent = isFs ? "✕ Quitter Plein Écran" : "⛶ Plein Écran";
+        if (chart) {
+            const chartContainer = document.getElementById("trading-chart");
+            setTimeout(() => {
+                const isMobileScreen = window.innerWidth <= 900;
+                chart.applyOptions({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight,
+                    handleScroll: {
+                        mouseWheel: isFs,
+                        pressedMouseMove: true,
+                        horzTouchDrag: true,
+                        vertTouchDrag: isFs || !isMobileScreen,
+                    },
+                    handleScale: {
+                        mouseWheel: isFs,
+                        pinch: true,
+                        axisPressedMouseMove: true,
+                        axisDoubleClickReset: true
+                    }
+                });
+                if (chart.timeScale) chart.timeScale().fitContent();
+            }, 100);
+        }
+    }
+
     if (btnFullscreen && chartCol) {
         btnFullscreen.addEventListener("click", () => {
-            chartCol.classList.toggle("fullscreen-mode");
-            const isFs = chartCol.classList.contains("fullscreen-mode");
-            btnFullscreen.textContent = isFs ? "✕ Quitter Plein Écran" : "⛶ Plein Écran";
-            if (chart) {
-                const chartContainer = document.getElementById("trading-chart");
-                setTimeout(() => {
-                    chart.applyOptions({
-                        width: chartContainer.clientWidth,
-                        height: chartContainer.clientHeight,
-                        handleScroll: { mouseWheel: isFs, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
-                        handleScale: { mouseWheel: isFs, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
-                    });
-                    if (chart.timeScale) chart.timeScale().fitContent();
-                }, 100);
-            }
-        });
-
-        document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape" && chartCol.classList.contains("fullscreen-mode")) {
-                chartCol.classList.remove("fullscreen-mode");
-                btnFullscreen.textContent = "⛶ Plein Écran";
-                if (chart) {
-                    const chartContainer = document.getElementById("trading-chart");
-                    setTimeout(() => {
-                        chart.applyOptions({
-                            width: chartContainer.clientWidth,
-                            height: chartContainer.clientHeight,
-                            handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
-                            handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
-                        });
-                        if (chart.timeScale) chart.timeScale().fitContent();
-                    }, 100);
-                }
-            }
+            const isCurrentlyFs = chartCol.classList.contains("fullscreen-mode");
+            setFullscreenMode(!isCurrentlyFs);
         });
     }
+
+    if (btnExitFs && chartCol) {
+        btnExitFs.addEventListener("click", () => {
+            setFullscreenMode(false);
+        });
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && chartCol && chartCol.classList.contains("fullscreen-mode")) {
+            setFullscreenMode(false);
+        }
+    });
 
     // 4d. Toggle de l'Inspecteur SMC Quant (Masqué par défaut)
     const toggleInsp = document.getElementById("toggle-layer-inspector");
@@ -1926,6 +1978,10 @@ function setupMobileNavigation() {
     const basketRibbon = document.getElementById("basket-ribbon");
     const agentDeck = document.getElementById("agent-deck-container");
 
+    // S'assurer qu'au démarrage aucun panneau n'est masqué par erreur
+    if (chartCol) chartCol.style.display = "";
+    if (sidebar) sidebar.style.display = "";
+
     tabs.forEach(btn => {
         btn.addEventListener("click", () => {
             tabs.forEach(t => t.classList.remove("active"));
@@ -1933,8 +1989,10 @@ function setupMobileNavigation() {
             const view = btn.dataset.view;
 
             if (view === "chart") {
-                if (chartCol) chartCol.style.display = "flex";
-                if (sidebar) sidebar.style.display = "none";
+                if (chartCol) {
+                    chartCol.style.display = "";
+                    chartCol.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
                 if (chart) {
                     setTimeout(() => {
                         const chartContainer = document.getElementById("trading-chart");
@@ -1943,35 +2001,66 @@ function setupMobileNavigation() {
                                 width: chartContainer.clientWidth,
                                 height: chartContainer.clientHeight,
                             });
+                            if (chart.timeScale) chart.timeScale().fitContent();
                         }
-                    }, 50);
+                    }, 120);
                 }
             } else if (view === "baskets") {
-                if (chartCol) chartCol.style.display = "flex";
-                if (basketRibbon) basketRibbon.scrollIntoView({ behavior: "smooth" });
+                if (basketRibbon) {
+                    basketRibbon.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
             } else if (view === "activity") {
-                if (chartCol) chartCol.style.display = "none";
+                const tabAct = document.getElementById("tab-btn-activity");
+                if (tabAct) tabAct.click();
                 if (sidebar) {
-                    sidebar.style.display = "flex";
-                    const tabAct = document.getElementById("tab-btn-activity");
-                    if (tabAct) tabAct.click();
+                    sidebar.style.display = "";
+                    sidebar.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
             } else if (view === "trades") {
-                if (chartCol) chartCol.style.display = "none";
+                const tabTr = document.getElementById("tab-btn-trades");
+                if (tabTr) tabTr.click();
                 if (sidebar) {
-                    sidebar.style.display = "flex";
-                    const tabTr = document.getElementById("tab-btn-trades");
-                    if (tabTr) tabTr.click();
+                    sidebar.style.display = "";
+                    sidebar.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
             } else if (view === "agents") {
-                if (chartCol) chartCol.style.display = "flex";
-                if (sidebar) sidebar.style.display = "none";
                 if (agentDeck) {
                     agentDeck.classList.remove("collapsed");
-                    agentDeck.scrollIntoView({ behavior: "smooth" });
+                    const btnToggle = document.getElementById("btn-toggle-agents");
+                    if (btnToggle) btnToggle.textContent = "▼ Masquer";
+                    agentDeck.scrollIntoView({ behavior: "smooth", block: "start" });
                 }
             }
         });
     });
+
+    // Synchronisation automatique de l'onglet actif lors du défilement manuel de la page
+    if (window.IntersectionObserver) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.25) {
+                    let activeView = null;
+                    if (entry.target.classList.contains("chart-column") || entry.target.id === "trading-chart") {
+                        activeView = "chart";
+                    } else if (entry.target.id === "basket-ribbon") {
+                        activeView = "baskets";
+                    } else if (entry.target.classList.contains("sidebar")) {
+                        const isTrades = document.getElementById("panel-trades")?.classList.contains("active");
+                        activeView = isTrades ? "trades" : "activity";
+                    } else if (entry.target.id === "agent-deck-container") {
+                        activeView = "agents";
+                    }
+                    if (activeView) {
+                        tabs.forEach(t => t.classList.toggle("active", t.dataset.view === activeView));
+                    }
+                }
+            });
+        }, { threshold: [0.25] });
+
+        if (chartCol) observer.observe(chartCol);
+        if (basketRibbon) observer.observe(basketRibbon);
+        if (sidebar) observer.observe(sidebar);
+        if (agentDeck) observer.observe(agentDeck);
+    }
 }
 
