@@ -20,6 +20,13 @@ let liveTimer = null;
 let agentTimer = null;
 let playbackSpeed = 1; // 1x = 300ms par bougie
 let smcPriceLines = [];
+let isSwitchingBasket = false;
+
+const BASKET_SYMBOLS_MAP = {
+    alpha: ["SOL", "SUI"],
+    quad: ["BTC", "SOL", "MNT", "SUI"],
+    core: ["BTC", "SOL"]
+};
 
 // État des calques de validation visuelle SMC
 const smcLayers = {
@@ -106,6 +113,18 @@ function initChart() {
             borderColor: "#242938",
             timeVisible: true,
             secondsVisible: false,
+        },
+        handleScroll: {
+            mouseWheel: false,
+            pressedMouseMove: true,
+            horzTouchDrag: true,
+            vertTouchDrag: true,
+        },
+        handleScale: {
+            mouseWheel: false,
+            pinch: true,
+            axisPressedMouseMove: true,
+            axisDoubleClickReset: true,
         },
     });
 
@@ -269,13 +288,36 @@ function setupEventListeners() {
             targetBtn.classList.add("active");
             currentTimeframe = targetBtn.getAttribute("data-tf") || "5m";
             console.log(`[Timeframe Switch] Passage en ${currentTimeframe}`);
-            
+
+            const overlay = document.getElementById("overlay-ohlc");
+            if (overlay) {
+                overlay.innerHTML = `<strong>${currentCoin}/USDC</strong> <span style="color:#00d2ff; font-weight:700;">${currentTimeframe.toUpperCase()}</span> &nbsp;|&nbsp; Chargement des flux...`;
+            }
+
             if (currentMode === "live") {
                 await loadLiveCandles(true);
             } else {
                 const btnRun = document.getElementById("btn-run-backtest");
                 if (btnRun) btnRun.click();
             }
+        });
+    });
+
+    // 4a. Clic sur les pills de stratégie des cartes paniers (⚡ M1, 📊 M5, 🏛 M15)
+    document.querySelectorAll(".strat-pill").forEach(pill => {
+        pill.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = pill.id || "";
+            let tf = "5m";
+            if (id.includes("scalp")) {
+                tf = id.includes("quad") ? "3m" : "1m";
+            } else if (id.includes("intraday")) {
+                tf = "5m";
+            } else if (id.includes("day")) {
+                tf = "15m";
+            }
+            const tfBtn = document.querySelector(`.btn-tf[data-tf="${tf}"]`);
+            if (tfBtn) tfBtn.click();
         });
     });
 
@@ -302,6 +344,8 @@ function setupEventListeners() {
                     chart.applyOptions({
                         width: chartContainer.clientWidth,
                         height: chartContainer.clientHeight,
+                        handleScroll: { mouseWheel: isFs, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+                        handleScale: { mouseWheel: isFs, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
                     });
                     if (chart.timeScale) chart.timeScale().fitContent();
                 }, 100);
@@ -318,6 +362,8 @@ function setupEventListeners() {
                         chart.applyOptions({
                             width: chartContainer.clientWidth,
                             height: chartContainer.clientHeight,
+                            handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+                            handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
                         });
                         if (chart.timeScale) chart.timeScale().fitContent();
                     }, 100);
@@ -1171,7 +1217,7 @@ async function loadPaperTradingStatus() {
         const data = await resp.json();
         if (!data) return;
 
-        if (data.active_basket_key) {
+        if (!isSwitchingBasket && data.active_basket_key) {
             currentActiveBasket = data.active_basket_key;
         }
 
@@ -1203,12 +1249,8 @@ async function loadPaperTradingStatus() {
                 if (!bInfo) return;
 
                 const card = document.getElementById(`card-basket-${bKey}`);
-                if (card) {
-                    if (bKey === currentActiveBasket) {
-                        card.classList.add("active");
-                    } else {
-                        card.classList.remove("active");
-                    }
+                if (card && !isSwitchingBasket) {
+                    card.classList.toggle("active", bKey === currentActiveBasket);
                 }
 
                 const balElem = document.getElementById(`basket-${bKey}-bal`);
@@ -1311,12 +1353,20 @@ async function loadPaperTradingStatus() {
 
 async function switchActiveBasket(basketKey) {
     try {
+        isSwitchingBasket = true;
         currentActiveBasket = basketKey;
         // Changement visuel immédiat (zéro lag perçu)
         ["alpha", "quad", "core"].forEach(k => {
             const card = document.getElementById(`card-basket-${k}`);
             if (card) card.classList.toggle("active", k === basketKey);
         });
+
+        const syms = BASKET_SYMBOLS_MAP[basketKey] || ["SOL", "SUI"];
+        if (!syms.includes(currentCoin)) {
+            currentCoin = syms[0];
+        }
+        updateCoinPills(syms);
+        loadLiveCandles(true, currentCoin);
 
         const resp = await fetch(`/api/paper-trading/basket?basket=${basketKey}`, { method: "POST" });
         const data = await resp.json();
@@ -1328,12 +1378,11 @@ async function switchActiveBasket(basketKey) {
                 }
                 updateCoinPills(data.symbols);
             }
-            loadPaperTradingStatus();
-            loadAgentsStatus();
-            loadLiveCandles(true, currentCoin);
         }
     } catch (e) {
         console.error("Erreur switchActiveBasket:", e);
+    } finally {
+        setTimeout(() => { isSwitchingBasket = false; }, 800);
     }
 }
 window.switchActiveBasket = switchActiveBasket;

@@ -418,9 +418,10 @@ header {
 /* Main Layout */
 .main-container {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1fr 380px;
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
+  width: 100%;
 }
 
 /* Chart Column */
@@ -428,7 +429,6 @@ header {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border-color);
-  overflow: hidden;
   position: relative;
 }
 
@@ -547,9 +547,9 @@ header {
 
 /* Chart Area */
 .chart-area {
-  flex: 1;
   position: relative;
-  min-height: 520px;
+  height: 560px;
+  min-height: 560px;
   background-color: #131722;
 }
 
@@ -582,11 +582,11 @@ header {
 .agent-deck-container {
   background-color: #0e121a;
   border-top: 1px solid var(--border-color);
-  padding: 8px 14px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 160px;
+  min-height: 135px;
 }
 
 .agent-deck-header {
@@ -720,7 +720,7 @@ header {
   display: flex;
   flex-direction: column;
   background-color: var(--bg-card);
-  overflow: hidden;
+  border-left: 1px solid var(--border-color);
 }
 
 .sidebar-tabs {
@@ -758,7 +758,6 @@ header {
   display: none;
   flex: 1;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .sidebar-panel.active {
@@ -784,7 +783,7 @@ header {
 
 /* Activity Log Stream (Style GPTHeist) */
 .activity-stream {
-  flex: 1;
+  height: 640px;
   overflow-y: auto;
   padding: 8px;
   display: flex;
@@ -839,7 +838,7 @@ header {
 
 /* Trade Log List */
 .trades-list {
-  flex: 1;
+  height: 640px;
   overflow-y: auto;
   padding: 8px;
 }
@@ -1031,7 +1030,7 @@ header {
 
 /* ─── History Runs List ─── */
 .history-runs-list {
-  flex: 1;
+  height: 640px;
   overflow-y: auto;
   padding: 8px;
 }

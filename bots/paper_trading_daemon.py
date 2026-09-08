@@ -612,8 +612,8 @@ class PaperTradingDaemon:
                     if best_bid <= 0 or best_ask <= 0:
                         continue
 
-                    htf_df = self.data_feed.fetch_candles(sym, interval=strat.htf_interval, limit_candles=50)
-                    df = self.data_feed.fetch_candles(sym, interval=strat.interval, limit_candles=80)
+                    htf_df = self.data_feed.fetch_candles(sym, interval=strat.htf_interval, limit_candles=100)
+                    df = self.data_feed.fetch_candles(sym, interval=strat.interval, limit_candles=200)
                     if df.empty or len(df) < 30:
                         continue
 

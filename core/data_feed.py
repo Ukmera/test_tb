@@ -32,20 +32,21 @@ class HyperliquidDataFeed:
         Intègre un cache mémoire ultra-rapide (3s) pour immuniser le serveur contre le rate-limiting 429.
         """
         now = time.time()
-        cache_key = f"{coin}_{interval}_{limit_candles}"
+        cache_key = f"{coin}_{interval}"
         is_live_query = (start_time_ms is None and end_time_ms is None)
 
         if is_live_query and cache_key in self._candle_cache:
             c_time, c_df = self._candle_cache[cache_key]
-            if now - c_time < 3.0:  # Cache frais de 3 secondes
-                return c_df.copy()
+            if now - c_time < 3.0 and len(c_df) >= min(limit_candles, 50):
+                return c_df.tail(limit_candles).copy()
 
         now_ms = int(now * 1000)
         if end_time_ms is None:
             end_time_ms = now_ms
 
         if start_time_ms is None:
-            # Estimation en fonction de l'intervalle
+            # Récupérer au moins 250 bougies pour satisfaire à la fois le daemon et le dashboard
+            effective_limit = max(limit_candles, 250)
             interval_minutes = 15
             if interval == "1m":
                 interval_minutes = 1
@@ -59,7 +60,7 @@ class HyperliquidDataFeed:
                 interval_minutes = 60
             elif interval == "4h":
                 interval_minutes = 240
-            start_time_ms = end_time_ms - (limit_candles * interval_minutes * 60 * 1000)
+            start_time_ms = end_time_ms - (effective_limit * interval_minutes * 60 * 1000)
 
         payload = {
             "type": "candleSnapshot",
@@ -98,12 +99,12 @@ class HyperliquidDataFeed:
             if is_live_query and not df.empty:
                 self._candle_cache[cache_key] = (now, df)
 
-            return df
+            return df.tail(limit_candles).copy()
         except Exception as e:
             print(f"[DataFeed Error] Échec de la récupération des bougies {coin} ({interval}): {e}")
             if cache_key in self._candle_cache:
                 print(f"[DataFeed Cache] Utilisation des bougies {coin} ({interval}) en cache mémoire.")
-                return self._candle_cache[cache_key][1].copy()
+                return self._candle_cache[cache_key][1].tail(limit_candles).copy()
             return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
 
     def fetch_order_book(self, coin: str = "BTC") -> Tuple[float, float, float]:

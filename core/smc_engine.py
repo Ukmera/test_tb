@@ -230,13 +230,59 @@ class SMCEngine:
 
         return swings
 
-    def calculate_ote_zone(self, swings: List[SwingPoint]) -> Optional[OTEZone]:
+    def calculate_ote_zone(
+        self,
+        swings: List[SwingPoint],
+        desired_trend: Optional[TrendDirection] = None
+    ) -> Optional[OTEZone]:
         """
-        Calcule la zone Fibonacci OTE (61.8% à 79.0%) sur le swing le plus récent.
+        Calcule la zone Fibonacci OTE (61.8% à 79.0%).
+        Si un desired_trend est spécifié (ex. tendance macro HTF), recherche l'impulsion majeure
+        correspondante dans la structure de swings plutôt que simplement les 2 derniers micro-swings.
         """
         if len(swings) < 2:
             return None
 
+        # 1. Si une tendance macro est requise, chercher l'impulsion majeure correspondante
+        if desired_trend == TrendDirection.BEARISH:
+            high_swings = [s for s in swings if s.is_high]
+            low_swings = [s for s in swings if not s.is_high]
+            if high_swings and low_swings:
+                max_high = max(high_swings, key=lambda s: s.price)
+                subsequent_lows = [s for s in low_swings if s.index > max_high.index]
+                if subsequent_lows:
+                    min_low = min(subsequent_lows, key=lambda s: s.price)
+                    diff = max_high.price - min_low.price
+                    if diff > 0:
+                        return OTEZone(
+                            is_bullish=False,
+                            swing_low=min_low.price,
+                            swing_high=max_high.price,
+                            fib_618=min_low.price + (diff * OTE_FIB_MIN),
+                            fib_705=min_low.price + (diff * OTE_FIB_SWEET_SPOT),
+                            fib_790=min_low.price + (diff * OTE_FIB_MAX)
+                        )
+
+        elif desired_trend == TrendDirection.BULLISH:
+            high_swings = [s for s in swings if s.is_high]
+            low_swings = [s for s in swings if not s.is_high]
+            if high_swings and low_swings:
+                min_low = min(low_swings, key=lambda s: s.price)
+                subsequent_highs = [s for s in high_swings if s.index > min_low.index]
+                if subsequent_highs:
+                    max_high = max(subsequent_highs, key=lambda s: s.price)
+                    diff = max_high.price - min_low.price
+                    if diff > 0:
+                        return OTEZone(
+                            is_bullish=True,
+                            swing_low=min_low.price,
+                            swing_high=max_high.price,
+                            fib_618=max_high.price - (diff * OTE_FIB_MIN),
+                            fib_705=max_high.price - (diff * OTE_FIB_SWEET_SPOT),
+                            fib_790=max_high.price - (diff * OTE_FIB_MAX)
+                        )
+
+        # 2. Repli standard sur le swing le plus récent
         last_swing = swings[-1]
         prev_swing = swings[-2]
 
@@ -539,12 +585,13 @@ class SMCEngine:
         for ob in reversed(obs):
             if ob.mitigated and (n_bars > 0 and ob.mitigated_at_index != n_bars - 1):
                 continue
-            if n_bars > 0 and (n_bars - 1 - ob.index > 120):
+            if n_bars > 0 and (n_bars - 1 - ob.index > 200):
                 continue
 
             if ob.is_bullish and trend == TrendDirection.BULLISH:
-                in_ote = ote.contains_price(ob.top) if ote else True
-                if in_ote:
+                in_ote = ote.contains_price(ob.top) if (ote and ote.is_bullish) else True
+                in_discount = (ob.top <= (ote.swing_low + (ote.swing_high - ote.swing_low) * 0.50)) if (ote and ote.is_bullish) else True
+                if in_ote or in_discount:
                     entry = ob.top
                     sl = ob.bottom - stop_buffer
                     risk_dist = entry - sl
@@ -574,8 +621,9 @@ class SMCEngine:
                         break
 
             elif not ob.is_bullish and trend == TrendDirection.BEARISH:
-                in_ote = ote.contains_price(ob.bottom) if ote else True
-                if in_ote:
+                in_ote = ote.contains_price(ob.bottom) if (ote and not ote.is_bullish) else True
+                in_premium = (ob.bottom >= (ote.swing_low + (ote.swing_high - ote.swing_low) * 0.50)) if (ote and not ote.is_bullish) else True
+                if in_ote or in_premium:
                     entry = ob.bottom
                     sl = ob.top + stop_buffer
                     risk_dist = sl - entry
@@ -607,12 +655,13 @@ class SMCEngine:
         for fvg in reversed(fvgs):
             if fvg.mitigated and (n_bars > 0 and fvg.mitigated_at_index != n_bars - 1):
                 continue
-            if n_bars > 0 and (n_bars - 1 - fvg.index > 120):
+            if n_bars > 0 and (n_bars - 1 - fvg.index > 200):
                 continue
 
             if fvg.is_bullish and trend == TrendDirection.BULLISH:
-                in_ote = ote.contains_price(fvg.bottom) if ote else True
-                if in_ote:
+                in_ote = ote.contains_price(fvg.bottom) if (ote and ote.is_bullish) else True
+                in_discount = (fvg.bottom <= (ote.swing_low + (ote.swing_high - ote.swing_low) * 0.50)) if (ote and ote.is_bullish) else True
+                if in_ote or in_discount:
                     entry = fvg.consequent_encroachment
                     sl = fvg.bottom - stop_buffer
                     risk_dist = entry - sl
@@ -641,8 +690,9 @@ class SMCEngine:
                         break
 
             elif not fvg.is_bullish and trend == TrendDirection.BEARISH:
-                in_ote = ote.contains_price(fvg.top) if ote else True
-                if in_ote:
+                in_ote = ote.contains_price(fvg.top) if (ote and not ote.is_bullish) else True
+                in_premium = (fvg.top >= (ote.swing_low + (ote.swing_high - ote.swing_low) * 0.50)) if (ote and not ote.is_bullish) else True
+                if in_ote or in_premium:
                     entry = fvg.consequent_encroachment
                     sl = fvg.top + stop_buffer
                     risk_dist = sl - entry
@@ -731,7 +781,7 @@ class SMCEngine:
 
         swings = self.find_swing_points(df)
         trend, structures = self.detect_market_structure(swings)
-        ote = self.calculate_ote_zone(swings)
+        ote = self.calculate_ote_zone(swings, desired_trend=trend)
         fvgs = self.detect_fvg(df, atr_series)
         obs = self.detect_order_blocks(df, fvgs)
         sweeps = self.detect_liquidity_sweeps(df, swings, atr_series)
@@ -820,7 +870,7 @@ class SMCEngine:
         current_atr = float(ltf_atr_series.iloc[-1]) if not ltf_atr_series.empty else 0.0
         ltf_swings = self.find_swing_points(ltf_df)
         ltf_trend, ltf_structures = self.detect_market_structure(ltf_swings)
-        ltf_ote = self.calculate_ote_zone(ltf_swings)
+        ltf_ote = self.calculate_ote_zone(ltf_swings, desired_trend=htf_trend)
         ltf_fvgs = self.detect_fvg(ltf_df, ltf_atr_series)
         ltf_obs = self.detect_order_blocks(ltf_df, ltf_fvgs)
         ltf_sweeps = self.detect_liquidity_sweeps(ltf_df, ltf_swings, ltf_atr_series)
