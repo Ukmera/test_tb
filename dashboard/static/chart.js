@@ -1302,7 +1302,7 @@ async function loadPaperTradingStatus() {
             sessionElem.style.color = data.session_allowed ? "#00e676" : "#ffb000";
         }
 
-        // 3. Cartes A/B Testing Multi-Paniers
+        // 3. Cartes A/B Testing Multi-Paniers et leurs 3 Tranches Découpées de 100$
         if (data.baskets) {
             ["alpha", "quad", "core"].forEach(bKey => {
                 const bInfo = data.baskets[bKey];
@@ -1313,27 +1313,21 @@ async function loadPaperTradingStatus() {
                     card.classList.toggle("active", bKey === currentActiveBasket);
                 }
 
-                const balElem = document.getElementById(`basket-${bKey}-bal`);
-                if (balElem) {
-                    const bBal = bInfo.total_balance !== undefined ? bInfo.total_balance : bInfo.current_balance;
-                    const bInit = bInfo.total_initial_capital !== undefined ? bInfo.total_initial_capital : 300;
-                    balElem.textContent = `$${bBal.toFixed(2)} / $${bInit.toFixed(0)}`;
+                // 1. Badge Total Panier (/300$)
+                const totalBalElem = document.getElementById(`basket-${bKey}-total-bal`);
+                if (totalBalElem) {
+                    const totBal = bInfo.total_balance !== undefined ? bInfo.total_balance : bInfo.current_balance;
+                    totalBalElem.textContent = `$${totBal.toFixed(2)} / $300`;
                 }
 
+                // PnL Total Panier (footer)
                 const pnlElem = document.getElementById(`basket-${bKey}-pnl`);
                 if (pnlElem) {
-                    const bRetUsd = bInfo.total_return_usd !== undefined ? bInfo.total_return_usd : (bInfo.current_balance - bInfo.initial_capital);
+                    const bRetUsd = bInfo.total_return_usd !== undefined ? bInfo.total_return_usd : 0;
                     const bRetPct = bInfo.total_return_pct !== undefined ? bInfo.total_return_pct : 0;
                     const sign = bRetUsd >= 0 ? "+" : "";
-                    pnlElem.textContent = `${sign}${bRetUsd.toFixed(2)}$ (${sign}${bRetPct.toFixed(1)}%)`;
-                    pnlElem.className = `basket-pnl ${bRetUsd >= 0 ? 'positive' : 'negative'}`;
-                }
-
-                const tradesElem = document.getElementById(`basket-${bKey}-trades`);
-                if (tradesElem) {
-                    const trCount = bInfo.total_closed_trades_count !== undefined ? bInfo.total_closed_trades_count : bInfo.closed_trades_count;
-                    const wrPct = bInfo.total_win_rate_pct !== undefined ? bInfo.total_win_rate_pct : bInfo.win_rate_pct;
-                    tradesElem.textContent = `${trCount} trade${trCount > 1 ? 's' : ''} | WR: ${wrPct}%`;
+                    pnlElem.textContent = `PnL Total: ${sign}${bRetUsd.toFixed(2)}$ (${sign}${bRetPct.toFixed(1)}%)`;
+                    pnlElem.className = `basket-total-pnl ${bRetUsd >= 0 ? 'positive' : 'negative'}`;
                 }
 
                 const statusElem = document.getElementById(`basket-${bKey}-status`);
@@ -1350,24 +1344,41 @@ async function loadPaperTradingStatus() {
                     }
                 }
 
-                // Mettre à jour les pills de stratégies (Scalp, Intraday, Day)
+                // 2. Découpage par tranche de 100$ : Mise à jour de chaque sous-stratégie (Scalp, Intraday, Day)
                 if (bInfo.strategies) {
                     ["scalp", "intraday", "day"].forEach(sId => {
-                        const pill = document.getElementById(`strat-pill-${bKey}-${sId}`);
                         const sData = bInfo.strategies[sId];
-                        if (pill && sData) {
-                            const isAct = (bInfo.active_strategy_id === sId);
-                            pill.classList.toggle("active", isAct);
-                            pill.title = `${sData.name} | Solde: $${sData.current_balance.toFixed(2)} (${sData.closed_trades_count} trades | WR: ${sData.win_rate_pct}%)`;
-                            if (sData.active_position) {
-                                pill.style.borderColor = "#00e676";
-                                pill.style.color = "#00e676";
-                                pill.style.boxShadow = "0 0 6px rgba(0, 230, 118, 0.4)";
-                            } else {
-                                pill.style.borderColor = "";
-                                pill.style.color = "";
-                                pill.style.boxShadow = "";
-                            }
+                        if (!sData) return;
+
+                        // Highlight de la ligne active
+                        const rowElem = document.getElementById(`strat-row-${bKey}-${sId}`);
+                        if (rowElem) {
+                            const isAct = (bKey === currentActiveBasket && bInfo.active_strategy_id === sId);
+                            rowElem.classList.toggle("active", isAct);
+                        }
+
+                        // Solde dédié (/100$)
+                        const balEl = document.getElementById(`strat-${bKey}-${sId}-bal`);
+                        if (balEl) {
+                            balEl.textContent = `$${sData.current_balance.toFixed(2)}`;
+                        }
+
+                        // PnL dédié
+                        const pnlEl = document.getElementById(`strat-${bKey}-${sId}-pnl`);
+                        if (pnlEl) {
+                            const ret = sData.total_return_usd !== undefined ? sData.total_return_usd : (sData.current_balance - sData.initial_capital);
+                            const retPct = sData.total_return_pct !== undefined ? sData.total_return_pct : 0;
+                            const sign = ret >= 0 ? "+" : "";
+                            pnlEl.textContent = `${sign}${ret.toFixed(2)}$ (${sign}${retPct.toFixed(1)}%)`;
+                            pnlEl.className = `strat-pnl ${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : 'neutral')}`;
+                        }
+
+                        // Trades & Win Rate
+                        const tradesEl = document.getElementById(`strat-${bKey}-${sId}-trades`);
+                        if (tradesEl) {
+                            const cnt = sData.closed_trades_count || 0;
+                            const wr = sData.win_rate_pct || 0;
+                            tradesEl.textContent = cnt > 0 ? `${cnt} trd | ${wr}% WR` : `0 trd | --`;
                         }
                     });
                 }
@@ -1399,19 +1410,32 @@ async function loadPaperTradingStatus() {
             }
         }
 
-        // 5. Mettre à jour le solde et PnL si en mode Live
+        // 5. Mettre à jour le solde et PnL si en mode Live (Découpé par tranche de 100$)
         if (currentMode === "live") {
+            const activeB = data.baskets ? data.baskets[data.active_basket_key] : null;
+            const activeStrat = (activeB && activeB.strategies) ? activeB.strategies[data.active_strategy_id] : null;
+
             const capElem = document.getElementById("live-capital");
             if (capElem) {
-                const liveBal = data.total_balance !== undefined ? data.total_balance : data.current_balance;
-                const liveInit = data.total_initial_capital !== undefined ? data.total_initial_capital : 300;
-                capElem.textContent = `$${liveBal.toFixed(2)} / $${liveInit.toFixed(0)}`;
+                if (activeStrat) {
+                    capElem.textContent = `$${activeStrat.current_balance.toFixed(2)} / $100`;
+                } else {
+                    const liveBal = data.total_balance !== undefined ? data.total_balance : data.current_balance;
+                    capElem.textContent = `$${liveBal.toFixed(2)} / $300`;
+                }
             }
+
             const pnlElem = document.getElementById("stat-pnl");
-            if (pnlElem && data.total_return_usd !== undefined) {
-                const sign = data.total_return_usd >= 0 ? "+" : "";
-                pnlElem.textContent = `${sign}${data.total_return_usd.toFixed(2)}$ (${sign}${data.total_return_pct.toFixed(1)}%)`;
-                pnlElem.className = `hud-value ${data.total_return_usd >= 0 ? 'positive' : 'negative'}`;
+            if (pnlElem) {
+                if (activeStrat && activeStrat.total_return_usd !== undefined) {
+                    const sign = activeStrat.total_return_usd >= 0 ? "+" : "";
+                    pnlElem.textContent = `${sign}${activeStrat.total_return_usd.toFixed(2)}$ (${sign}${activeStrat.total_return_pct.toFixed(1)}%)`;
+                    pnlElem.className = `hud-value ${activeStrat.total_return_usd >= 0 ? 'positive' : 'negative'}`;
+                } else if (data.total_return_usd !== undefined) {
+                    const sign = data.total_return_usd >= 0 ? "+" : "";
+                    pnlElem.textContent = `${sign}${data.total_return_usd.toFixed(2)}$ (${sign}${data.total_return_pct.toFixed(1)}%)`;
+                    pnlElem.className = `hud-value ${data.total_return_usd >= 0 ? 'positive' : 'negative'}`;
+                }
             }
 
             // 6. Afficher la position active ou les trades fermés dans l'onglet Exécutions

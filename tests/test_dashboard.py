@@ -73,49 +73,58 @@ def test_api_backtest_history():
     assert isinstance(data, list)
 
 
-def test_paper_trading_basket_endpoints():
-    # Test récupération des baskets
-    response = client.get("/api/paper-trading")
-    assert response.status_code == 200
-    data = response.json()
-    assert "baskets" in data
-    assert "alpha" in data["baskets"]
-    assert "quad" in data["baskets"]
-    assert "core" in data["baskets"]
+def test_paper_trading_basket_endpoints(tmp_path):
+    from dashboard.app import paper_trader
+    orig_state_file = paper_trader.state_file
+    test_state_file = tmp_path / "test_dash_paper.json"
+    paper_trader.state_file = test_state_file
+    paper_trader.save_state(test_state_file)
+    try:
+        # Test récupération des baskets
+        response = client.get("/api/paper-trading")
+        assert response.status_code == 200
+        data = response.json()
+        assert "baskets" in data
+        assert "alpha" in data["baskets"]
+        assert "quad" in data["baskets"]
+        assert "core" in data["baskets"]
 
-    # Test basculement sur 'quad'
-    switch_resp = client.post("/api/paper-trading/basket?basket=quad")
-    assert switch_resp.status_code == 200
-    switch_data = switch_resp.json()
-    assert switch_data["active_basket_key"] == "quad"
-    assert "BTC" in switch_data["symbols"]
+        # Test basculement sur 'quad'
+        switch_resp = client.post("/api/paper-trading/basket?basket=quad")
+        assert switch_resp.status_code == 200
+        switch_data = switch_resp.json()
+        assert switch_data["active_basket_key"] == "quad"
+        assert "BTC" in switch_data["symbols"]
 
-    # Test basculement sur 'core'
-    switch_resp2 = client.post("/api/paper-trading/basket?basket=core")
-    assert switch_resp2.status_code == 200
-    assert switch_resp2.json()["active_basket_key"] == "core"
+        # Test basculement sur 'core'
+        switch_resp2 = client.post("/api/paper-trading/basket?basket=core")
+        assert switch_resp2.status_code == 200
+        assert switch_resp2.json()["active_basket_key"] == "core"
 
-    # Test erreur sur panier inexistant
-    bad_resp = client.post("/api/paper-trading/basket?basket=unknown_basket")
-    assert bad_resp.status_code == 400
+        # Test erreur sur panier inexistant
+        bad_resp = client.post("/api/paper-trading/basket?basket=unknown_basket")
+        assert bad_resp.status_code == 400
 
-    # Test basculement de stratégie sur 'scalp'
-    strat_resp = client.post("/api/paper-trading/strategy?basket=core&strategy=scalp")
-    assert strat_resp.status_code == 200
-    strat_data = strat_resp.json()
-    assert strat_data["active_strategy_id"] == "scalp"
-    assert strat_data["active_basket_key"] == "core"
+        # Test basculement de stratégie sur 'scalp'
+        strat_resp = client.post("/api/paper-trading/strategy?basket=core&strategy=scalp")
+        assert strat_resp.status_code == 200
+        strat_data = strat_resp.json()
+        assert strat_data["active_strategy_id"] == "scalp"
+        assert strat_data["active_basket_key"] == "core"
 
-    # Test erreur sur stratégie invalide
-    bad_strat_resp = client.post("/api/paper-trading/strategy?basket=core&strategy=invalid_strat")
-    assert bad_strat_resp.status_code == 400
+        # Test erreur sur stratégie invalide
+        bad_strat_resp = client.post("/api/paper-trading/strategy?basket=core&strategy=invalid_strat")
+        assert bad_strat_resp.status_code == 400
 
-    # Test réinitialisation
-    reset_resp = client.post("/api/paper-trading/reset")
-    assert reset_resp.status_code == 200
-    reset_data = reset_resp.json()
-    assert reset_data["baskets"]["alpha"]["current_balance"] == 100.0
-    assert reset_data["baskets"]["alpha"]["total_balance"] == 300.0
+        # Test réinitialisation
+        reset_resp = client.post("/api/paper-trading/reset")
+        assert reset_resp.status_code == 200
+        reset_data = reset_resp.json()
+        assert reset_data["baskets"]["alpha"]["current_balance"] == 100.0
+        assert reset_data["baskets"]["alpha"]["total_balance"] == 300.0
+    finally:
+        paper_trader.state_file = orig_state_file
+        paper_trader.load_state(orig_state_file)
 
 
 def test_api_notifications_endpoints(tmp_path):

@@ -1249,6 +1249,103 @@ header {
   font-weight: 600;
 }
 
+.basket-total-badge {
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #00d2ff;
+  background: rgba(0, 210, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 210, 255, 0.25);
+  letter-spacing: 0.3px;
+}
+
+/* 3 Tranches Découpées de 100$ */
+.basket-tranches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 6px 0;
+}
+
+.strat-tranche-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 7px;
+  background: rgba(16, 21, 33, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.strat-tranche-row:hover {
+  background: rgba(33, 41, 64, 0.9);
+  border-color: rgba(0, 210, 255, 0.4);
+  transform: translateX(1px);
+}
+
+.strat-tranche-row.active {
+  background: rgba(41, 98, 255, 0.16);
+  border-color: #00d2ff;
+  box-shadow: 0 0 6px rgba(0, 210, 255, 0.25);
+}
+
+.strat-tranche-left {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.strat-badge {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.strat-badge.scalp { color: #ffb000; }
+.strat-badge.intraday { color: #00d2ff; }
+.strat-badge.day { color: #ba68c8; }
+
+.strat-tranche-metrics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.strat-bal {
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.strat-pnl {
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.strat-pnl.positive { color: var(--bull-green); }
+.strat-pnl.negative { color: var(--bear-red); }
+.strat-pnl.neutral { color: var(--text-muted); }
+
+.strat-tranche-right {
+  font-size: 0.60rem;
+  color: var(--text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.basket-total-pnl {
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.basket-total-pnl.positive { color: var(--bull-green); }
+.basket-total-pnl.negative { color: var(--bear-red); }
+
 .basket-card-body {
   display: flex;
   justify-content: space-between;

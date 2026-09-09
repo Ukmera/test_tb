@@ -143,62 +143,167 @@
             <span class="basket-badge-live">3 SOUS-COMPTES DE 100$</span>
         </div>
         <div class="basket-cards-container" id="basket-cards-container">
+            <!-- 1. ALPHA DUO (SOL + SUI) -->
             <div class="basket-card active" id="card-basket-alpha" onclick="switchActiveBasket('alpha')">
                 <div class="basket-card-header">
                     <span class="basket-tag champion">🏆 ALPHA DUO</span>
                     <span class="basket-symbols">SOL + SUI</span>
+                    <span class="basket-total-badge" id="basket-alpha-total-bal">$296.29 / $300</span>
                 </div>
-                <div class="basket-card-body">
-                    <span class="basket-balance" id="basket-alpha-bal">$100.00</span>
-                    <span class="basket-pnl positive" id="basket-alpha-pnl">+0.00$ (+0.0%)</span>
+
+                <div class="basket-tranches-list">
+                    <div class="strat-tranche-row active" id="strat-row-alpha-scalp" onclick="switchBasketStrategy('alpha', 'scalp', event)" title="Stratégie Scalp Ultra-Court (1m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge scalp">⚡ SCALP 1M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-alpha-scalp-bal">$96.29</span>
+                            <span class="strat-pnl negative" id="strat-alpha-scalp-pnl">-3.71$ (-3.7%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-alpha-scalp-trades">2 trd | 0% WR</span>
+                        </div>
+                    </div>
+
+                    <div class="strat-tranche-row" id="strat-row-alpha-intraday" onclick="switchBasketStrategy('alpha', 'intraday', event)" title="Stratégie Intraday Structure (5m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge intraday">📊 INTRADAY 5M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-alpha-intraday-bal">$100.00</span>
+                            <span class="strat-pnl neutral" id="strat-alpha-intraday-pnl">+0.00$ (0.0%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-alpha-intraday-trades">0 trd | --</span>
+                        </div>
+                    </div>
+
+                    <div class="strat-tranche-row" id="strat-row-alpha-day" onclick="switchBasketStrategy('alpha', 'day', event)" title="Stratégie Day Trading / Swing (15m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge day">🏛 DAY 15M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-alpha-day-bal">$100.00</span>
+                            <span class="strat-pnl neutral" id="strat-alpha-day-pnl">+0.00$ (0.0%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-alpha-day-trades">0 trd | --</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="basket-strats-row">
-                    <span class="strat-pill" id="strat-pill-alpha-scalp" title="Scalp M1">⚡ M1</span>
-                    <span class="strat-pill" id="strat-pill-alpha-intraday" title="Intraday M5">📊 M5</span>
-                    <span class="strat-pill" id="strat-pill-alpha-day" title="Day M15">🏛 M15</span>
-                </div>
+
                 <div class="basket-card-footer">
-                    <span id="basket-alpha-trades">0 trade | WR: 0%</span>
+                    <span id="basket-alpha-pnl" class="basket-total-pnl negative">PnL Total: -3.71$ (-1.2%)</span>
                     <span class="basket-status-dot scanning" id="basket-alpha-status">SCANNING</span>
                 </div>
             </div>
 
+            <!-- 2. QUAD BASKET (BTC + SOL + MNT + SUI) -->
             <div class="basket-card" id="card-basket-quad" onclick="switchActiveBasket('quad')">
                 <div class="basket-card-header">
                     <span class="basket-tag quad">🌐 QUAD BASKET</span>
                     <span class="basket-symbols">BTC + SOL + MNT + SUI</span>
+                    <span class="basket-total-badge" id="basket-quad-total-bal">$296.42 / $300</span>
                 </div>
-                <div class="basket-card-body">
-                    <span class="basket-balance" id="basket-quad-bal">$100.00</span>
-                    <span class="basket-pnl positive" id="basket-quad-pnl">+0.00$ (+0.0%)</span>
+
+                <div class="basket-tranches-list">
+                    <div class="strat-tranche-row" id="strat-row-quad-scalp" onclick="switchBasketStrategy('quad', 'scalp', event)" title="Stratégie Scalp Ultra-Court (3m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge scalp">⚡ SCALP 3M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-quad-scalp-bal">$96.18</span>
+                            <span class="strat-pnl negative" id="strat-quad-scalp-pnl">-3.82$ (-3.8%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-quad-scalp-trades">1 trd | 0% WR</span>
+                        </div>
+                    </div>
+
+                    <div class="strat-tranche-row active" id="strat-row-quad-intraday" onclick="switchBasketStrategy('quad', 'intraday', event)" title="Stratégie Intraday Structure (5m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge intraday">📊 INTRADAY 5M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-quad-intraday-bal">$100.24</span>
+                            <span class="strat-pnl positive" id="strat-quad-intraday-pnl">+0.24$ (+0.2%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-quad-intraday-trades">1 trd | 100% WR</span>
+                        </div>
+                    </div>
+
+                    <div class="strat-tranche-row" id="strat-row-quad-day" onclick="switchBasketStrategy('quad', 'day', event)" title="Stratégie Day Trading / Swing (15m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge day">🏛 DAY 15M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-quad-day-bal">$100.00</span>
+                            <span class="strat-pnl neutral" id="strat-quad-day-pnl">+0.00$ (0.0%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-quad-day-trades">0 trd | --</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="basket-strats-row">
-                    <span class="strat-pill" id="strat-pill-quad-scalp" title="Scalp M3">⚡ M3</span>
-                    <span class="strat-pill" id="strat-pill-quad-intraday" title="Intraday M5">📊 M5</span>
-                    <span class="strat-pill" id="strat-pill-quad-day" title="Day M15">🏛 M15</span>
-                </div>
+
                 <div class="basket-card-footer">
-                    <span id="basket-quad-trades">0 trade | WR: 0%</span>
+                    <span id="basket-quad-pnl" class="basket-total-pnl negative">PnL Total: -3.58$ (-1.2%)</span>
                     <span class="basket-status-dot scanning" id="basket-quad-status">SCANNING</span>
                 </div>
             </div>
 
+            <!-- 3. CORE DUO (BTC + SOL) -->
             <div class="basket-card" id="card-basket-core" onclick="switchActiveBasket('core')">
                 <div class="basket-card-header">
                     <span class="basket-tag core">🏛 CORE DUO</span>
                     <span class="basket-symbols">BTC + SOL</span>
+                    <span class="basket-total-badge" id="basket-core-total-bal">$297.63 / $300</span>
                 </div>
-                <div class="basket-card-body">
-                    <span class="basket-balance" id="basket-core-bal">$100.00</span>
-                    <span class="basket-pnl positive" id="basket-core-pnl">+0.00$ (+0.0%)</span>
+
+                <div class="basket-tranches-list">
+                    <div class="strat-tranche-row active" id="strat-row-core-scalp" onclick="switchBasketStrategy('core', 'scalp', event)" title="Stratégie Scalp Ultra-Court (1m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge scalp">⚡ SCALP 1M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-core-scalp-bal">$97.39</span>
+                            <span class="strat-pnl negative" id="strat-core-scalp-pnl">-2.61$ (-2.6%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-core-scalp-trades">2 trd | 0% WR</span>
+                        </div>
+                    </div>
+
+                    <div class="strat-tranche-row" id="strat-row-core-intraday" onclick="switchBasketStrategy('core', 'intraday', event)" title="Stratégie Intraday Structure (5m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge intraday">📊 INTRADAY 5M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-core-intraday-bal">$100.24</span>
+                            <span class="strat-pnl positive" id="strat-core-intraday-pnl">+0.24$ (+0.2%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-core-intraday-trades">1 trd | 100% WR</span>
+                        </div>
+                    </div>
+
+                    <div class="strat-tranche-row" id="strat-row-core-day" onclick="switchBasketStrategy('core', 'day', event)" title="Stratégie Day Trading / Swing (15m) - Capital dédié: 100$">
+                        <div class="strat-tranche-left">
+                            <span class="strat-badge day">🏛 DAY 15M</span>
+                        </div>
+                        <div class="strat-tranche-metrics">
+                            <span class="strat-bal" id="strat-core-day-bal">$100.00</span>
+                            <span class="strat-pnl neutral" id="strat-core-day-pnl">+0.00$ (0.0%)</span>
+                        </div>
+                        <div class="strat-tranche-right">
+                            <span class="strat-trades" id="strat-core-day-trades">0 trd | --</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="basket-strats-row">
-                    <span class="strat-pill" id="strat-pill-core-scalp" title="Scalp M1">⚡ M1</span>
-                    <span class="strat-pill" id="strat-pill-core-intraday" title="Intraday M5">📊 M5</span>
-                    <span class="strat-pill" id="strat-pill-core-day" title="Day M15">🏛 M15</span>
-                </div>
+
                 <div class="basket-card-footer">
-                    <span id="basket-core-trades">0 trade | WR: 0%</span>
+                    <span id="basket-core-pnl" class="basket-total-pnl negative">PnL Total: -2.37$ (-0.8%)</span>
                     <span class="basket-status-dot scanning" id="basket-core-status">SCANNING</span>
                 </div>
             </div>
