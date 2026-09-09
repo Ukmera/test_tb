@@ -124,9 +124,9 @@ def test_paper_trading_persistence_save_load_and_reset(tmp_path):
     assert len(daemon_restarted.baskets["alpha"].closed_trades) == 0
 
 
-def test_paper_trading_daemon_fills_active_order_on_step():
+def test_paper_trading_daemon_fills_active_order_on_step(tmp_path):
     """Vérifie qu'un ordre limite Maker placé dans une stratégie est automatiquement exécuté (Filled) lors de step()."""
-    daemon = PaperTradingDaemon(model="B", initial_capital=100.0, session_filter=False)
+    daemon = PaperTradingDaemon(model="B", initial_capital=100.0, session_filter=False, state_file=tmp_path / "step_fill.json")
     strat = daemon.baskets["alpha"].strategies["scalp"]
 
     # Placer un ordre limite Long sur SOL à 100.0$

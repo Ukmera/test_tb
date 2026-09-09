@@ -236,13 +236,71 @@ class PaperBasket:
     def get_active_position_data(self, market_prices: Dict[str, float]) -> Optional[Dict[str, Any]]:
         return self.primary_track.get_active_position_data(market_prices)
 
+    @property
+    def total_balance(self) -> float:
+        return round(sum(s.current_balance for s in self.strategies.values()), 2)
+
+    @property
+    def total_initial_capital(self) -> float:
+        return round(sum(s.initial_capital for s in self.strategies.values()), 2)
+
+    @property
+    def total_return_usd(self) -> float:
+        return round(self.total_balance - self.total_initial_capital, 2)
+
+    @property
+    def total_return_pct(self) -> float:
+        if self.total_initial_capital <= 0:
+            return 0.0
+        return round((self.total_return_usd / self.total_initial_capital) * 100, 2)
+
+    @property
+    def all_closed_trades(self) -> List[Dict[str, Any]]:
+        trades = []
+        for s in self.strategies.values():
+            trades.extend(s.closed_trades)
+        trades.sort(key=lambda t: t.get("closed_at", 0), reverse=True)
+        return trades
+
+    @property
+    def total_win_rate(self) -> float:
+        trades = self.all_closed_trades
+        if not trades:
+            return 0.0
+        wins = sum(1 for t in trades if t.get("pnl_usd", 0) > 0)
+        return round((wins / len(trades)) * 100, 1)
+
     def get_summary(self, market_prices: Dict[str, float]) -> Dict[str, Any]:
         """Retourne le résumé complet des métriques du portefeuille et de ses 3 stratégies parallèles."""
+        all_trades = self.all_closed_trades
+        all_orders = []
+        active_pos = None
+        for s in self.strategies.values():
+            all_orders.extend(list(s.execution.active_orders.values()))
+            if not active_pos:
+                pos = s.get_active_position_data(market_prices)
+                if pos:
+                    active_pos = pos
+
         summary = self.primary_track.get_summary(market_prices)
         summary["key"] = self.key
         summary["name"] = self.name
         summary["symbols"] = self.symbols
         summary["active_strategy_id"] = self.active_strategy_id
+        summary["total_balance"] = self.total_balance
+        summary["total_initial_capital"] = self.total_initial_capital
+        summary["total_return_usd"] = self.total_return_usd
+        summary["total_return_pct"] = self.total_return_pct
+        summary["all_closed_trades"] = all_trades
+        summary["total_closed_trades_count"] = len(all_trades)
+        summary["total_win_rate_pct"] = self.total_win_rate
+        if active_pos:
+            summary["active_position"] = active_pos
+        if all_orders:
+            summary["pending_orders"] = all_orders
+        if len(all_trades) > len(self.primary_track.closed_trades):
+            summary["closed_trades_count"] = len(all_trades)
+            summary["win_rate_pct"] = self.total_win_rate
         summary["strategies"] = {
             s_id: s.get_summary(market_prices) for s_id, s in self.strategies.items()
         }
@@ -409,8 +467,11 @@ class PaperTradingDaemon:
                     "key": b.key,
                     "name": b.name,
                     "symbols": b.symbols,
+                    "active_strategy_id": b.active_strategy_id,
                     "current_balance": round(b.current_balance, 2),
                     "initial_capital": b.initial_capital,
+                    "total_balance": b.total_balance,
+                    "total_initial_capital": b.total_initial_capital,
                     "closed_trades": b.closed_trades,
                     "active_position": b.execution.active_position,
                     "active_orders": b.execution.active_orders,
@@ -445,6 +506,8 @@ class PaperTradingDaemon:
             for k, b in self.baskets.items():
                 if k in saved_baskets:
                     b_info = saved_baskets[k]
+                    if "active_strategy_id" in b_info and b_info["active_strategy_id"] in b.strategies:
+                        b.active_strategy_id = b_info["active_strategy_id"]
                     b.current_balance = float(b_info.get("current_balance", b.initial_capital))
                     b.closed_trades = b_info.get("closed_trades", [])
 
@@ -653,21 +716,40 @@ class PaperTradingDaemon:
             b_data["is_active"] = (k == self.active_basket_key)
             baskets_summary[k] = b_data
 
+        # Agrégation multi-stratégies pour le panier actif
+        active_trades = active_b.all_closed_trades
+        active_orders = []
+        active_pos = None
+        for s in active_b.strategies.values():
+            active_orders.extend(list(s.execution.active_orders.values()))
+            if not active_pos:
+                pos = s.get_active_position_data(self.current_market_prices)
+                if pos:
+                    active_pos = pos
+
+        trades_to_show = active_trades if active_trades else active_b.closed_trades
+        pos_to_show = active_pos if active_pos else active_b.get_active_position_data(self.current_market_prices)
+        orders_to_show = active_orders if active_orders else list(active_b.execution.active_orders.values())
+
         return {
             "is_running": self.is_running,
             "active_basket_key": self.active_basket_key,
             "active_basket_name": active_b.name,
+            "active_strategy_id": active_b.active_strategy_id,
             "model": self.model,
             "interval": self.interval,
+            "basket_interval": active_b.interval,
             "current_balance": round(active_b.current_balance, 2),
             "initial_capital": active_b.initial_capital,
-            "total_return_usd": round(active_b.current_balance - active_b.initial_capital, 2),
-            "total_return_pct": round(((active_b.current_balance - active_b.initial_capital) / active_b.initial_capital) * 100, 2),
-            "active_position": active_b.get_active_position_data(self.current_market_prices),
-            "pending_orders": list(active_b.execution.active_orders.values()),
-            "closed_trades": active_b.closed_trades,
-            "closed_trades_count": len(active_b.closed_trades),
-            "win_rate_pct": active_b.get_win_rate(),
+            "total_balance": active_b.total_balance,
+            "total_initial_capital": active_b.total_initial_capital,
+            "total_return_usd": active_b.total_return_usd,
+            "total_return_pct": active_b.total_return_pct,
+            "active_position": pos_to_show,
+            "pending_orders": orders_to_show,
+            "closed_trades": trades_to_show,
+            "closed_trades_count": len(trades_to_show),
+            "win_rate_pct": active_b.total_win_rate if active_trades else active_b.get_win_rate(),
             "session_allowed": session_allowed,
             "session_message": session_msg,
             "palermo_halted": self.professor.palermo.is_halted,

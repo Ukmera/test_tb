@@ -116,6 +116,28 @@ def set_paper_trading_basket(basket: str = "alpha") -> Dict[str, Any]:
     }
 
 
+@app.post("/api/paper-trading/strategy")
+def set_paper_trading_strategy(basket: str = "alpha", strategy: str = "scalp") -> Dict[str, Any]:
+    """Change la sous-stratégie active visualisée pour un panier (scalp, intraday, day)."""
+    b_key = basket.lower()
+    if b_key not in paper_trader.baskets:
+        raise HTTPException(status_code=400, detail=f"Panier invalide '{basket}'. Choix: {list(paper_trader.baskets.keys())}")
+    b = paper_trader.baskets[b_key]
+    s_key = strategy.lower()
+    if s_key not in b.strategies:
+        raise HTTPException(status_code=400, detail=f"Stratégie invalide '{strategy}'. Choix: {list(b.strategies.keys())}")
+    b.active_strategy_id = s_key
+    paper_trader.set_active_basket(b_key)
+    paper_trader.save_state()
+    return {
+        "status": "success",
+        "active_basket_key": b_key,
+        "active_strategy_id": s_key,
+        "interval": b.primary_track.interval,
+        "symbols": b.symbols
+    }
+
+
 @app.post("/api/paper-trading/reset")
 def reset_paper_trading() -> Dict[str, Any]:
     """Réinitialise les portefeuilles de simulation à 100$ et efface l'historique persistant."""
@@ -210,6 +232,8 @@ def get_system_status() -> Dict[str, Any]:
     best_bid, best_ask, spread = data_feed.fetch_order_book("BTC")
     guard_check = risk_mgr.check_guardrails(best_bid, best_ask)
 
+    basket_cap = paper_trader.active_basket.total_balance if hasattr(paper_trader.active_basket, "total_balance") else risk_mgr.current_balance
+
     return {
         "symbol": "BTC",
         "best_bid": best_bid,
@@ -219,7 +243,7 @@ def get_system_status() -> Dict[str, Any]:
         "guardrail_message": guard_check.reason,
         "kill_switch_active": risk_mgr.kill_switch_active,
         "consecutive_losses": risk_mgr.consecutive_losses,
-        "capital_usd": round(risk_mgr.current_balance, 2),
+        "capital_usd": round(basket_cap, 2),
         "risk_per_trade_pct": round(risk_mgr.risk_pct * 100, 2)
     }
 

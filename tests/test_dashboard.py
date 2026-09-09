@@ -99,11 +99,23 @@ def test_paper_trading_basket_endpoints():
     bad_resp = client.post("/api/paper-trading/basket?basket=unknown_basket")
     assert bad_resp.status_code == 400
 
+    # Test basculement de stratégie sur 'scalp'
+    strat_resp = client.post("/api/paper-trading/strategy?basket=core&strategy=scalp")
+    assert strat_resp.status_code == 200
+    strat_data = strat_resp.json()
+    assert strat_data["active_strategy_id"] == "scalp"
+    assert strat_data["active_basket_key"] == "core"
+
+    # Test erreur sur stratégie invalide
+    bad_strat_resp = client.post("/api/paper-trading/strategy?basket=core&strategy=invalid_strat")
+    assert bad_strat_resp.status_code == 400
+
     # Test réinitialisation
     reset_resp = client.post("/api/paper-trading/reset")
     assert reset_resp.status_code == 200
     reset_data = reset_resp.json()
     assert reset_data["baskets"]["alpha"]["current_balance"] == 100.0
+    assert reset_data["baskets"]["alpha"]["total_balance"] == 300.0
 
 
 def test_api_notifications_endpoints(tmp_path):
