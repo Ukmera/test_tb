@@ -14,6 +14,7 @@ CACHE_DIR.mkdir(exist_ok=True)
 class HyperliquidDataFeed:
     def __init__(self, api_url: str = HYPERLIQUID_MAINNET_API):
         self.api_url = api_url.rstrip("/")
+        self.info_url = f"{self.api_url}/info"
         self._candle_cache: Dict[str, Tuple[float, pd.DataFrame]] = {}
         self._order_book_cache: Dict[str, Tuple[float, Tuple[float, float, float]]] = {}
         self._asset_ctx_cache: Dict[str, Dict[str, Any]] = {}

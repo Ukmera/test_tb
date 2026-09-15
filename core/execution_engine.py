@@ -182,7 +182,7 @@ class ExecutionEngine:
                     pos["fees_paid"] += fee_tp1
                     pos["be_activated"] = True
                     pos["stop_loss"] = pos["true_be_price"]
-                    print(f"[Execution Engine] 💰 Tier 1 (+1.0R) validé @ {pos['take_profit_1r']}$ ! 33% encaissé (+{pnl_tp1:.2f}$). True Breakeven armé à {pos['true_be_price']}$")
+                    print(f"[Execution Engine] [TP1] Tier 1 (+1.0R) valide @ {pos['take_profit_1r']}$ ! 33% encaisse (+{pnl_tp1:.2f}$). True Breakeven arme a {pos['true_be_price']}$")
 
             # B. Vérification Tier 2 (+3.0R, 33%) et sécurisation du Runner
             if pos["tp1_hit"] and not pos["tp2_hit"]:
@@ -197,7 +197,7 @@ class ExecutionEngine:
                     pos["accumulated_pnl"] += pnl_tp2
                     pos["fees_paid"] += fee_tp2
                     pos["stop_loss"] = pos["take_profit_1r"]
-                    print(f"[Execution Engine] 🎯 Tier 2 (+3.0R) validé @ {pos['take_profit_2r']}$ ! 33% encaissé (+{pnl_tp2:.2f}$). Runner verrouillé à {pos['take_profit_1r']}$")
+                    print(f"[Execution Engine] [TP2] Tier 2 (+3.0R) valide @ {pos['take_profit_2r']}$ ! 33% encaisse (+{pnl_tp2:.2f}$). Runner verrouille a {pos['take_profit_1r']}$")
 
             # C. Trailing Stop dynamique sur le Tier 3 Runner (34%)
             if pos["tp2_hit"]:
@@ -246,7 +246,7 @@ class ExecutionEngine:
                     "tp2_hit": pos["tp2_hit"]
                 }
                 self.active_position = None
-                print(f"[Execution Engine] 🎯 Position fermée : [{exit_reason}] @ {exit_price}$ | PnL Total: {total_pnl:+.2f}$ (Frais: {closed_trade['fees_usd']}$)")
+                print(f"[Execution Engine] [CLOSE] Position fermee : [{exit_reason}] @ {exit_price}$ | PnL Total: {total_pnl:+.2f}$ (Frais: {closed_trade['fees_usd']}$)")
                 return closed_trade
 
             elif hit_full_tp and not pos["tp2_hit"]:
@@ -270,7 +270,7 @@ class ExecutionEngine:
                     "tp2_hit": True
                 }
                 self.active_position = None
-                print(f"[Execution Engine] 🎯 Position fermée : [TP] @ {exit_price}$ | PnL Total: {total_pnl:+.2f}$")
+                print(f"[Execution Engine] [CLOSE] Position fermee : [TP] @ {exit_price}$ | PnL Total: {total_pnl:+.2f}$")
                 return closed_trade
 
         return None
