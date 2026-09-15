@@ -36,7 +36,8 @@ class PaperStrategyTrack:
         model: str = "B",
         initial_capital: float = INITIAL_CAPITAL_USD,
         is_challenger: bool = False,
-        compression_filter: bool = False
+        compression_filter: bool = False,
+        enable_alan_engine: bool = False
     ):
         self.strategy_id = strategy_id
         self.name = name
@@ -48,13 +49,15 @@ class PaperStrategyTrack:
         self.current_balance = initial_capital
         self.is_challenger = is_challenger
         self.compression_filter = compression_filter
+        self.enable_alan_engine = enable_alan_engine
         self.execution = ExecutionEngine()
         self.professors = {
             sym: ProfessorAgent(
                 symbol=sym,
                 initial_balance=initial_capital,
                 is_challenger=is_challenger,
-                compression_filter=compression_filter
+                compression_filter=compression_filter,
+                enable_alan_engine=enable_alan_engine
             ) for sym in symbols
         }
         self.closed_trades: List[Dict[str, Any]] = []
@@ -118,7 +121,8 @@ class PaperStrategyTrack:
             "win_rate_pct": self.get_win_rate(),
             "active_position": pos,
             "pending_orders": list(self.execution.active_orders.values()),
-            "is_challenger": self.is_challenger
+            "is_challenger": self.is_challenger,
+            "enable_alan_engine": self.enable_alan_engine
         }
 
 
@@ -138,7 +142,8 @@ class PaperBasket:
         interval: Optional[str] = None,
         htf_interval: Optional[str] = None,
         group: str = "A",
-        is_challenger: bool = False
+        is_challenger: bool = False,
+        enable_alan_engine: bool = False
     ):
         self.key = key
         self.name = name
@@ -146,6 +151,7 @@ class PaperBasket:
         self.initial_capital = initial_capital
         self.group = group.upper()
         self.is_challenger = is_challenger
+        self.enable_alan_engine = enable_alan_engine
 
         scalp_int = "3m" if "quad" in key else "1m"
         scalp_htf = "30m" if "quad" in key else "15m"
@@ -179,7 +185,8 @@ class PaperBasket:
                 model="A",
                 initial_capital=initial_capital,
                 is_challenger=is_challenger,
-                compression_filter=False
+                compression_filter=False,
+                enable_alan_engine=enable_alan_engine
             ),
             "intraday": PaperStrategyTrack(
                 strategy_id="intraday",
@@ -190,7 +197,8 @@ class PaperBasket:
                 model="B",
                 initial_capital=initial_capital,
                 is_challenger=is_challenger,
-                compression_filter=is_challenger
+                compression_filter=is_challenger,
+                enable_alan_engine=enable_alan_engine
             ),
             "day": PaperStrategyTrack(
                 strategy_id="day",
@@ -201,7 +209,8 @@ class PaperBasket:
                 model="B",
                 initial_capital=initial_capital,
                 is_challenger=is_challenger,
-                compression_filter=False
+                compression_filter=False,
+                enable_alan_engine=enable_alan_engine
             )
         }
 
@@ -344,6 +353,7 @@ class PaperBasket:
             summary["win_rate_pct"] = self.total_win_rate
         summary["group"] = self.group
         summary["is_challenger"] = self.is_challenger
+        summary["enable_alan_engine"] = self.enable_alan_engine
         summary["strategies"] = {
             s_id: s.get_summary(market_prices) for s_id, s in self.strategies.items()
         }
@@ -353,10 +363,11 @@ class PaperBasket:
 class PaperTradingDaemon:
     """
     Démon Autonome de Paper Trading en Temps Réel avec A/B Testing Multi-Paniers et Persistance Disque.
-    Fait tourner en parallèle 3 portefeuilles indépendants :
-      1. Alpha Duo : SOL + SUI (Meilleure performance backtest +66.7%)
-      2. Quad Basket : BTC + SOL + MNT + SUI (Diversification maximale & Bogota Arbitrage)
-      3. Core Duo : BTC + SOL (Benchmark institutionnel de référence)
+    Fait tourner en parallèle 4 Groupes (A, B, C, D) et 12 portefeuilles indépendants :
+      - GROUPE A : Baseline pure (SMC classique)
+      - GROUPE B : Challenger (SMC optimisé avec SL large + Anti-compression)
+      - GROUPE C : Alan Base (SMC classique + Dérivés & Squeeze Booster AlanTrading)
+      - GROUPE D : Alan Ultimate (SMC optimisé + Dérivés & Squeeze Booster AlanTrading)
     Sauvegarde automatiquement l'historique et les soldes pour résister aux redémarrages serveur.
     """
     def __init__(
@@ -377,7 +388,7 @@ class PaperTradingDaemon:
         self.last_update_time: float = time.time()
         self.state_file = state_file or STATE_FILE
 
-        # Configuration des 6 portefeuilles parallèles (A/B Testing Champion vs Challenger)
+        # Configuration des 12 portefeuilles parallèles (Matrice Factorielle 4 Groupes A / B / C / D)
         self.baskets: Dict[str, PaperBasket] = {
             # GROUPE A : BASELINE (RÉFÉRENCE HISTORIQUE)
             "alpha": PaperBasket(
@@ -389,7 +400,8 @@ class PaperTradingDaemon:
                 interval="1m",
                 htf_interval="15m",
                 group="A",
-                is_challenger=False
+                is_challenger=False,
+                enable_alan_engine=False
             ),
             "quad": PaperBasket(
                 key="quad",
@@ -400,7 +412,8 @@ class PaperTradingDaemon:
                 interval="5m",
                 htf_interval="1h",
                 group="A",
-                is_challenger=False
+                is_challenger=False,
+                enable_alan_engine=False
             ),
             "core": PaperBasket(
                 key="core",
@@ -411,7 +424,8 @@ class PaperTradingDaemon:
                 interval="15m",
                 htf_interval="4h",
                 group="A",
-                is_challenger=False
+                is_challenger=False,
+                enable_alan_engine=False
             ),
             # GROUPE B : CHALLENGER (OPTIMISÉ SL ÉLARGI + FILTRE COMPRESSION + SPÉCIALISATION)
             "alpha_b": PaperBasket(
@@ -423,7 +437,8 @@ class PaperTradingDaemon:
                 interval="1m",
                 htf_interval="15m",
                 group="B",
-                is_challenger=True
+                is_challenger=True,
+                enable_alan_engine=False
             ),
             "quad_b": PaperBasket(
                 key="quad_b",
@@ -434,7 +449,8 @@ class PaperTradingDaemon:
                 interval="5m",
                 htf_interval="1h",
                 group="B",
-                is_challenger=True
+                is_challenger=True,
+                enable_alan_engine=False
             ),
             "core_b": PaperBasket(
                 key="core_b",
@@ -445,7 +461,82 @@ class PaperTradingDaemon:
                 interval="15m",
                 htf_interval="4h",
                 group="B",
-                is_challenger=True
+                is_challenger=True,
+                enable_alan_engine=False
+            ),
+            # GROUPE C : ALAN BASELINE (SMC CLASSIQUE + DÉRIVÉS & SQUEEZE BOOSTER ALANTRADING)
+            "alpha_c": PaperBasket(
+                key="alpha_c",
+                name="Alpha Duo [Alan Base]",
+                symbols=["SOL", "SUI"],
+                initial_capital=initial_capital,
+                model="A",
+                interval="1m",
+                htf_interval="15m",
+                group="C",
+                is_challenger=False,
+                enable_alan_engine=True
+            ),
+            "quad_c": PaperBasket(
+                key="quad_c",
+                name="Quad Basket [Alan Base]",
+                symbols=["BTC", "SOL", "MNT", "SUI"],
+                initial_capital=initial_capital,
+                model="B",
+                interval="5m",
+                htf_interval="1h",
+                group="C",
+                is_challenger=False,
+                enable_alan_engine=True
+            ),
+            "core_c": PaperBasket(
+                key="core_c",
+                name="Core Duo [Alan Base]",
+                symbols=["BTC", "SOL"],
+                initial_capital=initial_capital,
+                model="B",
+                interval="15m",
+                htf_interval="4h",
+                group="C",
+                is_challenger=False,
+                enable_alan_engine=True
+            ),
+            # GROUPE D : ALAN ULTIMATE (SMC OPTIMISÉ + DÉRIVÉS & SQUEEZE BOOSTER ALANTRADING)
+            "alpha_d": PaperBasket(
+                key="alpha_d",
+                name="Alpha Duo [Alan Ultimate]",
+                symbols=["SOL", "SUI"],
+                initial_capital=initial_capital,
+                model="A",
+                interval="1m",
+                htf_interval="15m",
+                group="D",
+                is_challenger=True,
+                enable_alan_engine=True
+            ),
+            "quad_d": PaperBasket(
+                key="quad_d",
+                name="Quad Basket [Alan Ultimate]",
+                symbols=["BTC", "SOL", "MNT", "SUI"],
+                initial_capital=initial_capital,
+                model="B",
+                interval="5m",
+                htf_interval="1h",
+                group="D",
+                is_challenger=True,
+                enable_alan_engine=True
+            ),
+            "core_d": PaperBasket(
+                key="core_d",
+                name="Core Duo [Alan Ultimate]",
+                symbols=["BTC", "SOL"],
+                initial_capital=initial_capital,
+                model="B",
+                interval="15m",
+                htf_interval="4h",
+                group="D",
+                is_challenger=True,
+                enable_alan_engine=True
             )
         }
 
@@ -534,9 +625,9 @@ class PaperTradingDaemon:
         return False
 
     def set_active_group(self, group: str) -> bool:
-        """Bascule le groupe actif (A: Baseline ou B: Challenger)."""
+        """Bascule le groupe actif (A: Baseline, B: Challenger, C: Alan Base, D: Alan Ultimate)."""
         g = group.upper()
-        if g in ["A", "B"]:
+        if g in ["A", "B", "C", "D"]:
             self.active_group = g
             if getattr(self.active_basket, "group", "A") != g:
                 for k, b in self.baskets.items():
@@ -641,7 +732,7 @@ class PaperTradingDaemon:
                 self.active_basket_key = saved_key
 
             saved_group = data.get("active_group")
-            if saved_group and saved_group in ["A", "B"]:
+            if saved_group and saved_group in ["A", "B", "C", "D"]:
                 self.active_group = saved_group
 
             print(f"[Paper Trading Daemon] État persistant restauré depuis {target.name}")
@@ -708,8 +799,22 @@ class PaperTradingDaemon:
 
         session_allowed, session_msg = self.check_session_window()
 
+        # 1b. Récupérer les données dérivés et sentiment en temps réel pour l'Agent ALAN
+        asset_contexts = self.data_feed.fetch_asset_contexts()
+        fear_and_greed = self.data_feed.fetch_fear_and_greed()
+
+        def _format_grp_badge(grp_code: str) -> str:
+            if grp_code == "B":
+                return "🟢 [GROUPE B]"
+            elif grp_code == "C":
+                return "🟣 [GROUPE C]"
+            elif grp_code == "D":
+                return "🔥 [GROUPE D]"
+            return "🔵 [GROUPE A]"
+
         # 2. Cycle pour chaque panier et chaque stratégie en parallèle
         for b_key, basket in self.baskets.items():
+            grp_badge = _format_grp_badge(getattr(basket, "group", "A"))
             for strat_id, strat in basket.strategies.items():
                 had_active_pos = bool(strat.execution.active_position)
 
@@ -735,7 +840,6 @@ class PaperTradingDaemon:
                         state_changed = True
 
                         # Alerte mobile de trade clôturé
-                        grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
                         tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                         self.notifier.notify_trade_closed(tag, closed_trade)
 
@@ -752,14 +856,12 @@ class PaperTradingDaemon:
 
                 # Notification si un ordre limite vient d'être exécuté (Filled)
                 if not had_active_pos and strat.execution.active_position:
-                    grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
                     tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                     self.notifier.notify_position_filled(tag, strat.execution.active_position)
                     state_changed = True
 
                 # Notification si le True Breakeven vient d'être activé
                 if strat.execution.active_position and strat.execution.active_position.get("be_activated") and not strat.execution.active_position.get("_be_notified"):
-                    grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
                     tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                     self.notifier.notify_breakeven_activated(tag, strat.execution.active_position)
                     strat.execution.active_position["_be_notified"] = True
@@ -795,10 +897,16 @@ class PaperTradingDaemon:
 
                     # Délibération de la brigade d'agents pour ce symbole et cette stratégie
                     if sym in strat.professors:
-                        pipeline_result: DeskPipelineResult = strat.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
+                        pipeline_result: DeskPipelineResult = strat.professors[sym].route(
+                            df,
+                            best_bid,
+                            best_ask,
+                            htf_df=htf_df,
+                            asset_context=asset_contexts.get(sym),
+                            fear_and_greed=fear_and_greed
+                        )
                         if pipeline_result.approved and pipeline_result.proposal:
                             order_ticket = strat.execution.place_bracket_order(pipeline_result.proposal, timeframe=strat.interval)
-                            grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
                             tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                             self.notifier.notify_order_placed(tag, order_ticket)
                             state_changed = True
@@ -840,9 +948,15 @@ class PaperTradingDaemon:
         pos_to_show = active_pos if active_pos else active_b.get_active_position_data(self.current_market_prices)
         orders_to_show = active_orders if active_orders else list(active_b.execution.active_orders.values())
 
-        # Synthèse comparative des Groupes A et B
+        # Synthèse comparative des 4 Groupes A, B, C, D
         group_summaries = {}
-        for grp in ["A", "B"]:
+        names_map = {
+            "A": "Groupe A (Baseline)",
+            "B": "Groupe B (Challenger)",
+            "C": "Groupe C (Alan Base)",
+            "D": "Groupe D (Alan Ultimate)"
+        }
+        for grp in ["A", "B", "C", "D"]:
             grp_baskets = [b for b in self.baskets.values() if getattr(b, 'group', 'A') == grp]
             tot_bal = sum(b.total_balance for b in grp_baskets)
             tot_init = sum(b.total_initial_capital for b in grp_baskets)
@@ -854,7 +968,7 @@ class PaperTradingDaemon:
             wr = round((sum(1 for t in all_t if t.get('pnl_usd', 0) > 0) / len(all_t) * 100) if all_t else 0.0, 1)
             group_summaries[grp] = {
                 "group": grp,
-                "name": "Groupe A (Baseline)" if grp == "A" else "Groupe B (Challenger)",
+                "name": names_map.get(grp, f"Groupe {grp}"),
                 "total_balance": round(tot_bal, 2),
                 "total_initial_capital": round(tot_init, 2),
                 "total_return_usd": tot_ret_usd,

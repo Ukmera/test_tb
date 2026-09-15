@@ -14,6 +14,7 @@ from config.smc_params import (
 )
 from core.smc_engine import SMCEngine, SMCAnalysisResult, SMCSetupCandidate, TrendDirection
 from core.risk_manager import RiskManager, TradeOrderProposal
+from core.alan_liquidity_engine import AlanLiquidityEngine, AlanEvaluation
 from bots.sentinel_bot import MacroSentinelBot
 
 
@@ -352,6 +353,46 @@ class BogotaAgent:
             return True, "Fallback OK", logs
 
 
+class AlanAgent:
+    """ALAN (Derivatives & Squeeze Sentinel) :
+    Analyse les flux de dérivés Hyperliquid (Funding Rates, Open Interest)
+    et le sentiment (Fear & Greed) pour détecter les risques de Squeeze.
+    Applique le Veto directionnel et le Squeeze Booster (Score bonus + TP étendu).
+    """
+    def __init__(self, engine: Optional[AlanLiquidityEngine] = None):
+        self.engine = engine or AlanLiquidityEngine()
+
+    def evaluate_derivatives(
+        self,
+        symbol: str,
+        setup: SMCSetupCandidate,
+        asset_context: Optional[Dict[str, Any]] = None,
+        fear_and_greed: Optional[Dict[str, Any]] = None
+    ) -> Tuple[bool, Optional[AlanEvaluation], List[AgentMessage]]:
+        logs = []
+        now_str = time.strftime("%H:%M:%S")
+
+        eval_res = self.engine.evaluate_signal(
+            symbol=symbol,
+            is_long=setup.is_long,
+            entry_price=setup.entry_price,
+            stop_loss=setup.stop_loss,
+            take_profit=setup.take_profit_2r,
+            asset_context=asset_context,
+            fear_and_greed=fear_and_greed
+        )
+
+        if eval_res.is_vetoed:
+            logs.append(AgentMessage(now_str, "ALAN", "VETO", eval_res.reason))
+            return False, eval_res, logs
+        elif eval_res.is_boosted:
+            logs.append(AgentMessage(now_str, "ALAN", "CLEARED", eval_res.reason))
+            return True, eval_res, logs
+        else:
+            logs.append(AgentMessage(now_str, "ALAN", "CLEARED", eval_res.reason))
+            return True, eval_res, logs
+
+
 class ProfessorAgent:
     """LE PROFESSEUR (Router) : Coordonne la brigade d'agents et autorise l'ordre final."""
     def __init__(
@@ -359,22 +400,25 @@ class ProfessorAgent:
         symbol: str = "BTC",
         initial_balance: float = 100.0,
         is_challenger: bool = False,
-        compression_filter: bool = False
+        compression_filter: bool = False,
+        enable_alan_engine: bool = False
     ):
         self.symbol = symbol
         self.balance = initial_balance
         self.is_challenger = is_challenger
+        self.enable_alan_engine = enable_alan_engine
         self.smc = SMCEngine(is_challenger=is_challenger, compression_filter=compression_filter)
         self.sentinel = MacroSentinelBot()
         self.risk_mgr = RiskManager(current_balance=initial_balance)
 
-        # Brigade d'agents au complet (11 agents institutionnels)
+        # Brigade d'agents au complet (12 agents institutionnels)
         self.tokyo = TokyoAgent(self.smc)
         self.denver = DenverAgent()
         self.rio = RioAgent()
         self.berlin = BerlinAgent()
         self.nairobi = NairobiAgent(self.sentinel)
         self.bogota = BogotaAgent()
+        self.alan = AlanAgent() if enable_alan_engine else None
         self.palermo = PalermoAgent()
         self.stockholm = StockholmAgent(self.risk_mgr)
         self.helsinki = HelsinkiAgent()
@@ -405,6 +449,7 @@ class ProfessorAgent:
             "NAIROBI": {"role": "BRIEFS", "desc": "Sentinelle Macro CPI/FOMC", "status": "CLEARED", "color": "#e91e63"},
             "BERLIN": {"role": "CONDITIONS", "desc": "OTE Fib 61.8%-79%", "status": "ACTIVE", "color": "#ff9800"},
             "BOGOTA": {"role": "ARBITRAGE", "desc": "Lead-Lag Binance vs HL", "status": "ACTIVE", "color": "#e040fb"},
+            "ALAN": {"role": "DERIVATIVES", "desc": "Squeeze & Funding AlanTrading", "status": "ACTIVE" if self.enable_alan_engine else "OFF", "color": "#ff6d00"},
             "LISBON": {"role": "RECHECK", "desc": "Fraîcheur & ticket", "status": "ACTIVE", "color": "#00bcd4"}
         }
 
@@ -433,11 +478,13 @@ class ProfessorAgent:
         df: pd.DataFrame,
         best_bid: float,
         best_ask: float,
-        htf_df: Optional[pd.DataFrame] = None
+        htf_df: Optional[pd.DataFrame] = None,
+        asset_context: Optional[Dict[str, Any]] = None,
+        fear_and_greed: Optional[Dict[str, Any]] = None
     ) -> DeskPipelineResult:
         """
-        Exécute la chaîne d'approbation séquentielle des 10 agents :
-        Tokyo -> Denver -> Rio -> Berlin -> Nairobi -> Palermo -> Stockholm -> Helsinki -> Lisbon -> Professor
+        Exécute la chaîne d'approbation séquentielle des agents :
+        Tokyo -> Denver -> Rio -> Berlin -> Nairobi -> Bogota -> Alan -> Palermo -> Stockholm -> Helsinki -> Lisbon -> Professor
         """
         pipeline_messages = []
         now_str = time.strftime("%H:%M:%S")
@@ -493,6 +540,28 @@ class ProfessorAgent:
             res = DeskPipelineResult(approved=False, setup=setup, veto_agent="BOGOTA", veto_reason=bogota_reason, messages=pipeline_messages)
             self.last_pipeline_result = res
             return res
+
+        # 7. ALAN : Analyse Dérivés & Squeeze Booster (si activé)
+        if self.enable_alan_engine and self.alan:
+            alan_ok, alan_eval, alan_logs = self.alan.evaluate_derivatives(
+                self.symbol, setup, asset_context=asset_context, fear_and_greed=fear_and_greed
+            )
+            pipeline_messages.extend(alan_logs)
+            if not alan_ok:
+                self.activity_log.extend(pipeline_messages)
+                res = DeskPipelineResult(
+                    approved=False,
+                    setup=setup,
+                    veto_agent="ALAN",
+                    veto_reason=alan_eval.reason if alan_eval else "Veto dérivés",
+                    messages=pipeline_messages
+                )
+                self.last_pipeline_result = res
+                return res
+            if alan_eval and alan_eval.is_boosted:
+                # Appliquer l'extension de Take Profit sur le setup pour capturer l'impulsion du squeeze
+                setup.take_profit_2r = alan_eval.adjusted_tp
+                setup.take_profit = alan_eval.adjusted_tp
 
         # 7. PALERMO : Porte de VETO (Kill-Switch, Spread, Limites)
         palermo_ok, palermo_reason, palermo_logs = self.palermo.evaluate_veto(best_bid, best_ask)

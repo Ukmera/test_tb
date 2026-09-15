@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "saved_at": 1789424707.283772,
-  "saved_str": "2026-09-14T22:25:07.283772+00:00",
+  "saved_at": 1789467257.897504,
+  "saved_str": "2026-09-15T10:14:17.897504+00:00",
   "active_basket_key": "alpha",
   "active_group": "A",
   "baskets": {
@@ -856,7 +856,40 @@
               "r_multiple": -0.25
             }
           ],
-          "active_position": null,
+          "active_position": {
+            "order_id": "HL_SUI_1789465525837",
+            "symbol": "SUI",
+            "is_long": true,
+            "entry_price": 0.71088,
+            "initial_stop_loss": 0.7094582399999999,
+            "stop_loss": 0.71,
+            "take_profit_1r": 0.71,
+            "take_profit_2r": 0.72,
+            "take_profit": 0.72,
+            "true_be_price": 0.71,
+            "size": 422.01,
+            "initial_size": 422.01,
+            "remaining_size": 282.7467,
+            "t1_size": 139.2633,
+            "t2_size": 139.2633,
+            "t3_size": 143.4834,
+            "notional_usd": 300.0,
+            "status": "FILLED",
+            "created_at": 1789465525.8378618,
+            "simulated": true,
+            "tp1_hit": true,
+            "tp2_hit": false,
+            "be_activated": true,
+            "accumulated_pnl": -0.14232709259999887,
+            "fees_paid": 0.07977508236,
+            "grade": "5_STAR_OB",
+            "has_prior_sweep": false,
+            "timeframe": "3m",
+            "timeout_seconds": 2700,
+            "fill_price": 0.71088,
+            "fill_time": 1789466372.2609012,
+            "_be_notified": true
+          },
           "active_orders": {}
         },
         "intraday": {
@@ -1608,7 +1641,39 @@
           "r_multiple": -0.25
         }
       ],
-      "active_position": null,
+      "active_position": {
+        "order_id": "HL_SOL_1789465199292",
+        "symbol": "SOL",
+        "is_long": false,
+        "entry_price": 100.86,
+        "initial_stop_loss": 101.06172,
+        "stop_loss": 101.06172,
+        "take_profit_1r": 100.66,
+        "take_profit_2r": 100.25,
+        "take_profit": 100.25,
+        "true_be_price": 100.76,
+        "size": 7.33641,
+        "initial_size": 7.33641,
+        "remaining_size": 7.33641,
+        "t1_size": 2.421015,
+        "t2_size": 2.421015,
+        "t3_size": 2.49438,
+        "notional_usd": 739.95,
+        "status": "FILLED",
+        "created_at": 1789465199.2923934,
+        "simulated": true,
+        "tp1_hit": false,
+        "tp2_hit": false,
+        "be_activated": false,
+        "accumulated_pnl": 0.0,
+        "fees_paid": 0.14799006252,
+        "grade": "5_STAR_SWEEP_OB",
+        "has_prior_sweep": true,
+        "timeframe": "1m",
+        "timeout_seconds": 1350,
+        "fill_price": 100.86,
+        "fill_time": 1789466135.2119389
+      },
       "active_orders": {},
       "strategies": {
         "scalp": {
@@ -1946,7 +2011,39 @@
               "r_multiple": -0.25
             }
           ],
-          "active_position": null,
+          "active_position": {
+            "order_id": "HL_SOL_1789465199292",
+            "symbol": "SOL",
+            "is_long": false,
+            "entry_price": 100.86,
+            "initial_stop_loss": 101.06172,
+            "stop_loss": 101.06172,
+            "take_profit_1r": 100.66,
+            "take_profit_2r": 100.25,
+            "take_profit": 100.25,
+            "true_be_price": 100.76,
+            "size": 7.33641,
+            "initial_size": 7.33641,
+            "remaining_size": 7.33641,
+            "t1_size": 2.421015,
+            "t2_size": 2.421015,
+            "t3_size": 2.49438,
+            "notional_usd": 739.95,
+            "status": "FILLED",
+            "created_at": 1789465199.2923934,
+            "simulated": true,
+            "tp1_hit": false,
+            "tp2_hit": false,
+            "be_activated": false,
+            "accumulated_pnl": 0.0,
+            "fees_paid": 0.14799006252,
+            "grade": "5_STAR_SWEEP_OB",
+            "has_prior_sweep": true,
+            "timeframe": "1m",
+            "timeout_seconds": 1350,
+            "fill_price": 100.86,
+            "fill_time": 1789466135.2119389
+          },
           "active_orders": {}
         },
         "intraday": {
@@ -2162,13 +2259,77 @@
       "total_balance": 300.0,
       "total_initial_capital": 300.0,
       "closed_trades": [],
-      "active_position": null,
+      "active_position": {
+        "order_id": "HL_SOL_1789465212583",
+        "symbol": "SOL",
+        "is_long": false,
+        "entry_price": 100.86,
+        "initial_stop_loss": 101.46516,
+        "stop_loss": 101.46516,
+        "take_profit_1r": 100.25,
+        "take_profit_2r": 99.04,
+        "take_profit": 99.04,
+        "true_be_price": 100.76,
+        "size": 2.47868,
+        "initial_size": 2.47868,
+        "remaining_size": 2.47868,
+        "t1_size": 0.817964,
+        "t2_size": 0.817964,
+        "t3_size": 0.842752,
+        "notional_usd": 250.0,
+        "status": "FILLED",
+        "created_at": 1789465212.583348,
+        "simulated": true,
+        "tp1_hit": false,
+        "tp2_hit": false,
+        "be_activated": false,
+        "accumulated_pnl": 0.0,
+        "fees_paid": 0.04999993296000001,
+        "grade": "5_STAR_SWEEP_OB",
+        "has_prior_sweep": true,
+        "timeframe": "1m",
+        "timeout_seconds": 1350,
+        "fill_price": 100.86,
+        "fill_time": 1789466151.5398934
+      },
       "active_orders": {},
       "strategies": {
         "scalp": {
           "current_balance": 100.0,
           "closed_trades": [],
-          "active_position": null,
+          "active_position": {
+            "order_id": "HL_SOL_1789465212583",
+            "symbol": "SOL",
+            "is_long": false,
+            "entry_price": 100.86,
+            "initial_stop_loss": 101.46516,
+            "stop_loss": 101.46516,
+            "take_profit_1r": 100.25,
+            "take_profit_2r": 99.04,
+            "take_profit": 99.04,
+            "true_be_price": 100.76,
+            "size": 2.47868,
+            "initial_size": 2.47868,
+            "remaining_size": 2.47868,
+            "t1_size": 0.817964,
+            "t2_size": 0.817964,
+            "t3_size": 0.842752,
+            "notional_usd": 250.0,
+            "status": "FILLED",
+            "created_at": 1789465212.583348,
+            "simulated": true,
+            "tp1_hit": false,
+            "tp2_hit": false,
+            "be_activated": false,
+            "accumulated_pnl": 0.0,
+            "fees_paid": 0.04999993296000001,
+            "grade": "5_STAR_SWEEP_OB",
+            "has_prior_sweep": true,
+            "timeframe": "1m",
+            "timeout_seconds": 1350,
+            "fill_price": 100.86,
+            "fill_time": 1789466151.5398934
+          },
           "active_orders": {}
         },
         "intraday": {
@@ -2283,6 +2444,258 @@
               "r_multiple": -0.65
             }
           ],
+          "active_position": {
+            "order_id": "HL_SOL_1789465357634",
+            "symbol": "SOL",
+            "is_long": false,
+            "entry_price": 100.86,
+            "initial_stop_loss": 101.46516,
+            "stop_loss": 101.46516,
+            "take_profit_1r": 100.25,
+            "take_profit_2r": 99.04,
+            "take_profit": 99.04,
+            "true_be_price": 100.76,
+            "size": 2.47868,
+            "initial_size": 2.47868,
+            "remaining_size": 2.47868,
+            "t1_size": 0.817964,
+            "t2_size": 0.817964,
+            "t3_size": 0.842752,
+            "notional_usd": 250.0,
+            "status": "FILLED",
+            "created_at": 1789465357.634337,
+            "simulated": true,
+            "tp1_hit": false,
+            "tp2_hit": false,
+            "be_activated": false,
+            "accumulated_pnl": 0.0,
+            "fees_paid": 0.04999993296000001,
+            "grade": "5_STAR_SWEEP_OB",
+            "has_prior_sweep": true,
+            "timeframe": "1m",
+            "timeout_seconds": 1350,
+            "fill_price": 100.86,
+            "fill_time": 1789466187.7362297
+          },
+          "active_orders": {}
+        },
+        "intraday": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "day": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        }
+      }
+    },
+    "alpha_c": {
+      "key": "alpha_c",
+      "name": "Alpha Duo [Alan Base]",
+      "symbols": [
+        "SOL",
+        "SUI"
+      ],
+      "active_strategy_id": "scalp",
+      "current_balance": 100.0,
+      "initial_capital": 100.0,
+      "total_balance": 300.0,
+      "total_initial_capital": 300.0,
+      "closed_trades": [],
+      "active_position": null,
+      "active_orders": {},
+      "strategies": {
+        "scalp": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "intraday": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "day": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        }
+      }
+    },
+    "quad_c": {
+      "key": "quad_c",
+      "name": "Quad Basket [Alan Base]",
+      "symbols": [
+        "BTC",
+        "SOL",
+        "MNT",
+        "SUI"
+      ],
+      "active_strategy_id": "intraday",
+      "current_balance": 100.0,
+      "initial_capital": 100.0,
+      "total_balance": 300.0,
+      "total_initial_capital": 300.0,
+      "closed_trades": [],
+      "active_position": null,
+      "active_orders": {},
+      "strategies": {
+        "scalp": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "intraday": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "day": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        }
+      }
+    },
+    "core_c": {
+      "key": "core_c",
+      "name": "Core Duo [Alan Base]",
+      "symbols": [
+        "BTC",
+        "SOL"
+      ],
+      "active_strategy_id": "day",
+      "current_balance": 100.0,
+      "initial_capital": 100.0,
+      "total_balance": 300.0,
+      "total_initial_capital": 300.0,
+      "closed_trades": [],
+      "active_position": null,
+      "active_orders": {},
+      "strategies": {
+        "scalp": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "intraday": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "day": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        }
+      }
+    },
+    "alpha_d": {
+      "key": "alpha_d",
+      "name": "Alpha Duo [Alan Ultimate]",
+      "symbols": [
+        "SOL",
+        "SUI"
+      ],
+      "active_strategy_id": "scalp",
+      "current_balance": 100.0,
+      "initial_capital": 100.0,
+      "total_balance": 300.0,
+      "total_initial_capital": 300.0,
+      "closed_trades": [],
+      "active_position": null,
+      "active_orders": {},
+      "strategies": {
+        "scalp": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "intraday": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "day": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        }
+      }
+    },
+    "quad_d": {
+      "key": "quad_d",
+      "name": "Quad Basket [Alan Ultimate]",
+      "symbols": [
+        "BTC",
+        "SOL",
+        "MNT",
+        "SUI"
+      ],
+      "active_strategy_id": "intraday",
+      "current_balance": 100.0,
+      "initial_capital": 100.0,
+      "total_balance": 300.0,
+      "total_initial_capital": 300.0,
+      "closed_trades": [],
+      "active_position": null,
+      "active_orders": {},
+      "strategies": {
+        "scalp": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "intraday": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        },
+        "day": {
+          "current_balance": 100.0,
+          "closed_trades": [],
+          "active_position": null,
+          "active_orders": {}
+        }
+      }
+    },
+    "core_d": {
+      "key": "core_d",
+      "name": "Core Duo [Alan Ultimate]",
+      "symbols": [
+        "BTC",
+        "SOL"
+      ],
+      "active_strategy_id": "day",
+      "current_balance": 100.0,
+      "initial_capital": 100.0,
+      "total_balance": 300.0,
+      "total_initial_capital": 300.0,
+      "closed_trades": [],
+      "active_position": null,
+      "active_orders": {},
+      "strategies": {
+        "scalp": {
+          "current_balance": 100.0,
+          "closed_trades": [],
           "active_position": null,
           "active_orders": {}
         },

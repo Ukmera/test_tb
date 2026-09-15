@@ -14,9 +14,12 @@ CACHE_DIR.mkdir(exist_ok=True)
 class HyperliquidDataFeed:
     def __init__(self, api_url: str = HYPERLIQUID_MAINNET_API):
         self.api_url = api_url.rstrip("/")
-        self.info_url = f"{self.api_url}/info"
         self._candle_cache: Dict[str, Tuple[float, pd.DataFrame]] = {}
         self._order_book_cache: Dict[str, Tuple[float, Tuple[float, float, float]]] = {}
+        self._asset_ctx_cache: Dict[str, Dict[str, Any]] = {}
+        self._asset_ctx_cache_time: float = 0.0
+        self._fng_cache: Dict[str, Any] = {"value": 50, "classification": "Neutral", "timestamp": None}
+        self._fng_cache_time: float = 0.0
 
     def fetch_candles(
         self,
@@ -139,6 +142,79 @@ class HyperliquidDataFeed:
             if coin in self._order_book_cache:
                 return self._order_book_cache[coin][1]
         return 0.0, 0.0, 1.0
+
+    def fetch_asset_contexts(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Récupère les métadonnées des marchés dérivés depuis Hyperliquid (Open Interest, Funding Rate, Volume 24h, Premium).
+        Cache ultra-rapide de 8 secondes pour respecter les quotas API.
+        """
+        now = time.time()
+        if now - self._asset_ctx_cache_time < 8.0 and self._asset_ctx_cache:
+            return self._asset_ctx_cache
+
+        payload = {"type": "metaAndAssetCtxs"}
+        try:
+            resp = requests.post(f"{self.api_url}/info", json=payload, headers={"Content-Type": "application/json"}, timeout=5)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list) and len(data) >= 2:
+                universe = data[0].get("universe", [])
+                ctxs = data[1]
+                result = {}
+                for i, u in enumerate(universe):
+                    sym = u.get("name")
+                    if i < len(ctxs) and sym:
+                        c = ctxs[i]
+                        result[sym] = {
+                            "symbol": sym,
+                            "open_interest": float(c.get("openInterest") or 0.0),
+                            "funding": float(c.get("funding") or 0.0),
+                            "prev_day_px": float(c.get("prevDayPx") or 0.0),
+                            "day_ntl_vlm": float(c.get("dayNtlVlm") or 0.0),
+                            "premium": float(c.get("premium") or 0.0),
+                            "oracle_px": float(c.get("oraclePx") or 0.0),
+                            "mark_px": float(c.get("markPx") or 0.0),
+                            "mid_px": float(c.get("midPx") or 0.0)
+                        }
+                self._asset_ctx_cache = result
+                self._asset_ctx_cache_time = now
+                return result
+        except Exception as e:
+            print(f"[DataFeed Warning] Échec récupération asset contexts: {e}")
+            if self._asset_ctx_cache:
+                return self._asset_ctx_cache
+        return {}
+
+    def fetch_fear_and_greed(self) -> Dict[str, Any]:
+        """
+        Récupère l'indice Crypto Fear & Greed depuis l'API publique Alternative.me.
+        Cache mémoire de 15 minutes (l'indice global est journalier).
+        """
+        now = time.time()
+        if now - self._fng_cache_time < 900.0 and self._fng_cache.get("timestamp"):
+            return self._fng_cache
+
+        try:
+            resp = requests.get("https://api.alternative.me/fng/?limit=1", timeout=4)
+            resp.raise_for_status()
+            data = resp.json()
+            items = data.get("data", [])
+            if items:
+                val = int(items[0].get("value", 50))
+                classification = items[0].get("value_classification", "Neutral")
+                res = {
+                    "value": val,
+                    "classification": classification,
+                    "timestamp": items[0].get("timestamp")
+                }
+                self._fng_cache = res
+                self._fng_cache_time = now
+                return res
+        except Exception as e:
+            print(f"[DataFeed Warning] Échec récupération Fear & Greed: {e}")
+            if self._fng_cache:
+                return self._fng_cache
+        return {"value": 50, "classification": "Neutral", "timestamp": None}
 
     def cache_historical_data(self, df: pd.DataFrame, coin: str, interval: str, suffix: str = "historical") -> Path:
         """Sauvegarde les bougies en cache local CSV pour les backtests hors ligne."""

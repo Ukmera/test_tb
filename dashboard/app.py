@@ -103,10 +103,10 @@ def set_paper_trading_model(model: str = "B") -> Dict[str, Any]:
 
 @app.post("/api/paper-trading/group")
 def set_paper_trading_group(group: str = "A") -> Dict[str, Any]:
-    """Change le groupe A/B actif (A: Baseline vs B: Challenger)."""
+    """Change le groupe actif (A: Baseline, B: Challenger, C: Alan Base, D: Alan Ultimate)."""
     g = group.upper()
-    if g not in ["A", "B"]:
-        raise HTTPException(status_code=400, detail="Groupe invalide. Utilisez 'A' ou 'B'.")
+    if g not in ["A", "B", "C", "D"]:
+        raise HTTPException(status_code=400, detail="Groupe invalide. Utilisez 'A', 'B', 'C' ou 'D'.")
     paper_trader.set_active_group(g)
     return {
         "status": "success",

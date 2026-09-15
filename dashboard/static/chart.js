@@ -28,7 +28,13 @@ const BASKET_SYMBOLS_MAP = {
     core: ["BTC", "SOL"],
     alpha_b: ["SOL", "SUI"],
     quad_b: ["BTC", "SOL", "MNT", "SUI"],
-    core_b: ["BTC", "SOL"]
+    core_b: ["BTC", "SOL"],
+    alpha_c: ["SOL", "SUI"],
+    quad_c: ["BTC", "SOL", "MNT", "SUI"],
+    core_c: ["BTC", "SOL"],
+    alpha_d: ["SOL", "SUI"],
+    quad_d: ["BTC", "SOL", "MNT", "SUI"],
+    core_d: ["BTC", "SOL"]
 };
 let currentActiveGroup = "A";
 
@@ -36,29 +42,40 @@ async function switchAbGroup(group) {
     try {
         currentActiveGroup = group.toUpperCase();
         
-        // Toggles boutons tabs A/B
-        const btnA = document.getElementById("ab-btn-group-a");
-        const btnB = document.getElementById("ab-btn-group-b");
-        if (btnA) btnA.classList.toggle("active", currentActiveGroup === "A");
-        if (btnB) btnB.classList.toggle("active", currentActiveGroup === "B");
-
-        // Toggles affichage cartes A / B
-        const cardsA = document.getElementById("group-cards-a");
-        const cardsB = document.getElementById("group-cards-b");
-        if (cardsA) cardsA.style.display = (currentActiveGroup === "A") ? "flex" : "none";
-        if (cardsB) cardsB.style.display = (currentActiveGroup === "B") ? "flex" : "none";
+        // Toggles boutons tabs A/B/C/D
+        ["a", "b", "c", "d"].forEach(g => {
+            const btn = document.getElementById(`ab-btn-group-${g}`);
+            if (btn) btn.classList.toggle("active", currentActiveGroup === g.toUpperCase());
+            const cards = document.getElementById(`group-cards-${g}`);
+            if (cards) cards.style.display = (currentActiveGroup === g.toUpperCase()) ? "flex" : "none";
+        });
 
         // Notifier le backend
         await fetch(`/api/paper-trading/group?group=${currentActiveGroup}`, { method: "POST" });
         
         // Basculer sur le panier équivalent du groupe
-        const targetBasket = (currentActiveGroup === "A") ? "alpha" : "alpha_b";
+        let targetBasket = "alpha";
+        if (currentActiveGroup === "B") targetBasket = "alpha_b";
+        else if (currentActiveGroup === "C") targetBasket = "alpha_c";
+        else if (currentActiveGroup === "D") targetBasket = "alpha_d";
         await switchActiveBasket(targetBasket);
     } catch (e) {
         console.error("Erreur switchAbGroup:", e);
     }
 }
 window.switchAbGroup = switchAbGroup;
+
+async function switchBasketStrategy(basketKey, stratId, event) {
+    if (event) event.stopPropagation();
+    try {
+        await switchActiveBasket(basketKey);
+        await fetch(`/api/paper-trading/strategy?basket=${basketKey}&strategy=${stratId}`, { method: "POST" });
+        await loadPaperTradingStatus();
+    } catch (e) {
+        console.error("Erreur switchBasketStrategy:", e);
+    }
+}
+window.switchBasketStrategy = switchBasketStrategy;
 
 // État des calques de validation visuelle SMC
 const smcLayers = {
@@ -1334,25 +1351,27 @@ async function loadPaperTradingStatus() {
             sessionElem.style.color = data.session_allowed ? "#00e676" : "#ffb000";
         }
 
-        // 2b. Synthèse A/B Testing Score Pills
+        // 2b. Synthèse A/B/C/D Testing Score Pills
         if (data.group_summaries) {
-            const sumA = data.group_summaries.A;
-            const sumB = data.group_summaries.B;
-            const pillA = document.getElementById("ab-pill-a");
-            const pillB = document.getElementById("ab-pill-b");
-            if (pillA && sumA) {
-                const s = sumA.total_return_usd >= 0 ? "+" : "";
-                pillA.textContent = `A : $${sumA.total_balance.toFixed(2)} (${s}${sumA.total_return_pct.toFixed(2)}%) | ${sumA.trades_count} trd`;
-            }
-            if (pillB && sumB) {
-                const s = sumB.total_return_usd >= 0 ? "+" : "";
-                pillB.textContent = `B : $${sumB.total_balance.toFixed(2)} (${s}${sumB.total_return_pct.toFixed(2)}%) | ${sumB.trades_count} trd`;
-            }
+            ["a", "b", "c", "d"].forEach(g => {
+                const grpKey = g.toUpperCase();
+                const sum = data.group_summaries[grpKey];
+                const pill = document.getElementById(`ab-pill-${g}`);
+                if (pill && sum) {
+                    const s = sum.total_return_usd >= 0 ? "+" : "";
+                    pill.textContent = `${grpKey} : $${sum.total_balance.toFixed(2)} (${s}${sum.total_return_pct.toFixed(2)}%) | ${sum.trades_count} trd`;
+                }
+            });
         }
 
-        // 3. Cartes A/B Testing Multi-Paniers (6 Portefeuilles) et leurs 3 Tranches Découpées de 100$
+        // 3. Cartes Multi-Paniers (12 Portefeuilles A/B/C/D) et leurs 3 Tranches Découpées de 100$
         if (data.baskets) {
-            ["alpha", "quad", "core", "alpha_b", "quad_b", "core_b"].forEach(bKey => {
+            [
+                "alpha", "quad", "core",
+                "alpha_b", "quad_b", "core_b",
+                "alpha_c", "quad_c", "core_c",
+                "alpha_d", "quad_d", "core_d"
+            ].forEach(bKey => {
                 const bInfo = data.baskets[bKey];
                 if (!bInfo) return;
 
@@ -1499,24 +1518,30 @@ async function switchActiveBasket(basketKey) {
         isSwitchingBasket = true;
         currentActiveBasket = basketKey;
         // Changement visuel immédiat (zéro lag perçu)
-        ["alpha", "quad", "core", "alpha_b", "quad_b", "core_b"].forEach(k => {
+        [
+            "alpha", "quad", "core",
+            "alpha_b", "quad_b", "core_b",
+            "alpha_c", "quad_c", "core_c",
+            "alpha_d", "quad_d", "core_d"
+        ].forEach(k => {
             const card = document.getElementById(`card-basket-${k}`);
             if (card) card.classList.toggle("active", k === basketKey);
         });
 
-        // Synchroniser le groupe actif si le panier appartient à l'autre groupe
-        const isB = basketKey.endsWith("_b");
-        const newGroup = isB ? "B" : "A";
+        // Synchroniser le groupe actif si le panier appartient à un groupe spécifique
+        let newGroup = "A";
+        if (basketKey.endsWith("_b")) newGroup = "B";
+        else if (basketKey.endsWith("_c")) newGroup = "C";
+        else if (basketKey.endsWith("_d")) newGroup = "D";
+
         if (currentActiveGroup !== newGroup) {
             currentActiveGroup = newGroup;
-            const btnA = document.getElementById("ab-btn-group-a");
-            const btnB = document.getElementById("ab-btn-group-b");
-            if (btnA) btnA.classList.toggle("active", newGroup === "A");
-            if (btnB) btnB.classList.toggle("active", newGroup === "B");
-            const cardsA = document.getElementById("group-cards-a");
-            const cardsB = document.getElementById("group-cards-b");
-            if (cardsA) cardsA.style.display = (newGroup === "A") ? "flex" : "none";
-            if (cardsB) cardsB.style.display = (newGroup === "B") ? "flex" : "none";
+            ["a", "b", "c", "d"].forEach(g => {
+                const btn = document.getElementById(`ab-btn-group-${g}`);
+                if (btn) btn.classList.toggle("active", newGroup === g.toUpperCase());
+                const cards = document.getElementById(`group-cards-${g}`);
+                if (cards) cards.style.display = (newGroup === g.toUpperCase()) ? "flex" : "none";
+            });
         }
 
         const syms = BASKET_SYMBOLS_MAP[basketKey] || ["SOL", "SUI"];
