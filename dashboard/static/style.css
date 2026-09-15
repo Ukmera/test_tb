@@ -1996,6 +1996,101 @@ header {
   }
 }
 
+/* ==========================================================================
+   A/B Testing Champion vs Challenger Styles
+   ========================================================================== */
+.ab-group-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #111522;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
 
+.ab-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.ab-tab-btn {
+  background: #1a2030;
+  color: #a0aec0;
+  border: 1px solid #2d3748;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
 
+.ab-tab-btn:hover {
+  background: #252d42;
+  color: #fff;
+}
+
+.ab-tab-btn.active#ab-btn-group-a {
+  background: rgba(41, 98, 255, 0.15);
+  border-color: #2962ff;
+  color: #82b1ff;
+  box-shadow: 0 0 10px rgba(41, 98, 255, 0.3);
+}
+
+.ab-tab-btn.active#ab-btn-group-b {
+  background: rgba(0, 230, 118, 0.15);
+  border-color: #00e676;
+  color: #00e676;
+  box-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
+}
+
+.ab-score-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.74rem;
+}
+
+.ab-score-pill {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+}
+
+.ab-score-pill.a-pill {
+  background: rgba(41, 98, 255, 0.12);
+  border: 1px solid rgba(41, 98, 255, 0.3);
+  color: #82b1ff;
+}
+
+.ab-score-pill.b-pill {
+  background: rgba(0, 230, 118, 0.12);
+  border: 1px solid rgba(0, 230, 118, 0.3);
+  color: #00e676;
+}
+
+.ab-vs {
+  color: #718096;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.basket-tag.challenger {
+  background: rgba(0, 230, 118, 0.15);
+  color: #00e676;
+  border: 1px solid rgba(0, 230, 118, 0.35);
+}
+
+.basket-cards-group {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}

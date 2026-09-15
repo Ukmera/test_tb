@@ -34,7 +34,9 @@ class PaperStrategyTrack:
         interval: str,
         htf_interval: str,
         model: str = "B",
-        initial_capital: float = INITIAL_CAPITAL_USD
+        initial_capital: float = INITIAL_CAPITAL_USD,
+        is_challenger: bool = False,
+        compression_filter: bool = False
     ):
         self.strategy_id = strategy_id
         self.name = name
@@ -44,8 +46,17 @@ class PaperStrategyTrack:
         self.model = model.upper()
         self.initial_capital = initial_capital
         self.current_balance = initial_capital
+        self.is_challenger = is_challenger
+        self.compression_filter = compression_filter
         self.execution = ExecutionEngine()
-        self.professors = {sym: ProfessorAgent(symbol=sym, initial_balance=initial_capital) for sym in symbols}
+        self.professors = {
+            sym: ProfessorAgent(
+                symbol=sym,
+                initial_balance=initial_capital,
+                is_challenger=is_challenger,
+                compression_filter=compression_filter
+            ) for sym in symbols
+        }
         self.closed_trades: List[Dict[str, Any]] = []
         self.last_scanned_candle_times: Dict[str, int] = {sym: 0 for sym in symbols}
 
@@ -106,7 +117,8 @@ class PaperStrategyTrack:
             "closed_trades_count": len(self.closed_trades),
             "win_rate_pct": self.get_win_rate(),
             "active_position": pos,
-            "pending_orders": list(self.execution.active_orders.values())
+            "pending_orders": list(self.execution.active_orders.values()),
+            "is_challenger": self.is_challenger
         }
 
 
@@ -124,43 +136,72 @@ class PaperBasket:
         initial_capital: float = INITIAL_CAPITAL_USD,
         model: str = "B",
         interval: Optional[str] = None,
-        htf_interval: Optional[str] = None
+        htf_interval: Optional[str] = None,
+        group: str = "A",
+        is_challenger: bool = False
     ):
         self.key = key
         self.name = name
         self.symbols = symbols
         self.initial_capital = initial_capital
+        self.group = group.upper()
+        self.is_challenger = is_challenger
 
-        scalp_int = "3m" if key == "quad" else "1m"
-        scalp_htf = "30m" if key == "quad" else "15m"
+        scalp_int = "3m" if "quad" in key else "1m"
+        scalp_htf = "30m" if "quad" in key else "15m"
+
+        if is_challenger:
+            # Spécialisation paires & timeframes Challenger
+            # 1. Scalp : BTC & SOL uniquement (filtrer SUI/MNT du scalp rapide)
+            scalp_symbols = [s for s in symbols if s in ["BTC", "SOL"]]
+            if not scalp_symbols:
+                scalp_symbols = symbols[:1]
+
+            # 2. Intraday : BTC & SOL (ou paires panier) avec filtre anti-compression
+            intraday_symbols = [s for s in symbols if s in ["BTC", "SOL"]]
+            if not intraday_symbols:
+                intraday_symbols = symbols
+
+            # 3. Day : Toutes les paires (SUI & MNT dédiés au 15m)
+            day_symbols = symbols
+        else:
+            scalp_symbols = symbols
+            intraday_symbols = symbols
+            day_symbols = symbols
 
         self.strategies: Dict[str, PaperStrategyTrack] = {
             "scalp": PaperStrategyTrack(
                 strategy_id="scalp",
                 name=f"Scalp Ultra-Court ({scalp_int})",
-                symbols=symbols,
+                symbols=scalp_symbols,
                 interval=scalp_int,
                 htf_interval=scalp_htf,
                 model="A",
-                initial_capital=initial_capital
+                initial_capital=initial_capital,
+                is_challenger=is_challenger,
+                compression_filter=False
             ),
             "intraday": PaperStrategyTrack(
                 strategy_id="intraday",
                 name="Intraday Structure (5m)",
-                symbols=symbols,
+                symbols=intraday_symbols,
                 interval="5m",
                 htf_interval="1h",
                 model="B",
-                initial_capital=initial_capital
+                initial_capital=initial_capital,
+                is_challenger=is_challenger,
+                compression_filter=is_challenger
             ),
             "day": PaperStrategyTrack(
                 strategy_id="day",
                 name="Day Trading / Swing (15m)",
-                symbols=symbols,
+                symbols=day_symbols,
                 interval="15m",
                 htf_interval="4h",
                 model="B",
-                initial_capital=initial_capital
+                initial_capital=initial_capital,
+                is_challenger=is_challenger,
+                compression_filter=False
             )
         }
 
@@ -301,6 +342,8 @@ class PaperBasket:
         if len(all_trades) > len(self.primary_track.closed_trades):
             summary["closed_trades_count"] = len(all_trades)
             summary["win_rate_pct"] = self.total_win_rate
+        summary["group"] = self.group
+        summary["is_challenger"] = self.is_challenger
         summary["strategies"] = {
             s_id: s.get_summary(market_prices) for s_id, s in self.strategies.items()
         }
@@ -334,8 +377,9 @@ class PaperTradingDaemon:
         self.last_update_time: float = time.time()
         self.state_file = state_file or STATE_FILE
 
-        # Configuration des 3 portefeuilles parallèles (A/B Testing Multi-Stratégies)
+        # Configuration des 6 portefeuilles parallèles (A/B Testing Champion vs Challenger)
         self.baskets: Dict[str, PaperBasket] = {
+            # GROUPE A : BASELINE (RÉFÉRENCE HISTORIQUE)
             "alpha": PaperBasket(
                 key="alpha",
                 name="Alpha Duo (SOL + SUI)",
@@ -343,7 +387,9 @@ class PaperTradingDaemon:
                 initial_capital=initial_capital,
                 model="A",
                 interval="1m",
-                htf_interval="15m"
+                htf_interval="15m",
+                group="A",
+                is_challenger=False
             ),
             "quad": PaperBasket(
                 key="quad",
@@ -352,7 +398,9 @@ class PaperTradingDaemon:
                 initial_capital=initial_capital,
                 model="B",
                 interval="5m",
-                htf_interval="1h"
+                htf_interval="1h",
+                group="A",
+                is_challenger=False
             ),
             "core": PaperBasket(
                 key="core",
@@ -361,11 +409,48 @@ class PaperTradingDaemon:
                 initial_capital=initial_capital,
                 model="B",
                 interval="15m",
-                htf_interval="4h"
+                htf_interval="4h",
+                group="A",
+                is_challenger=False
+            ),
+            # GROUPE B : CHALLENGER (OPTIMISÉ SL ÉLARGI + FILTRE COMPRESSION + SPÉCIALISATION)
+            "alpha_b": PaperBasket(
+                key="alpha_b",
+                name="Alpha Duo [Challenger]",
+                symbols=["SOL", "SUI"],
+                initial_capital=initial_capital,
+                model="A",
+                interval="1m",
+                htf_interval="15m",
+                group="B",
+                is_challenger=True
+            ),
+            "quad_b": PaperBasket(
+                key="quad_b",
+                name="Quad Basket [Challenger]",
+                symbols=["BTC", "SOL", "MNT", "SUI"],
+                initial_capital=initial_capital,
+                model="B",
+                interval="5m",
+                htf_interval="1h",
+                group="B",
+                is_challenger=True
+            ),
+            "core_b": PaperBasket(
+                key="core_b",
+                name="Core Duo [Challenger]",
+                symbols=["BTC", "SOL"],
+                initial_capital=initial_capital,
+                model="B",
+                interval="15m",
+                htf_interval="4h",
+                group="B",
+                is_challenger=True
             )
         }
 
-        # Panier actif visualisé par défaut : Alpha Duo
+        # Groupe et panier actif visualisés par défaut
+        self.active_group = "A"
         self.active_basket_key = "alpha"
 
         # Symboles uniques à interroger sur le marché
@@ -443,6 +528,21 @@ class PaperTradingDaemon:
         """Change le panier actif pour l'affichage dans le dashboard et sauvegarde l'état."""
         if basket_key in self.baskets:
             self.active_basket_key = basket_key
+            self.active_group = getattr(self.baskets[basket_key], "group", "A")
+            self.save_state(self.state_file)
+            return True
+        return False
+
+    def set_active_group(self, group: str) -> bool:
+        """Bascule le groupe actif (A: Baseline ou B: Challenger)."""
+        g = group.upper()
+        if g in ["A", "B"]:
+            self.active_group = g
+            if getattr(self.active_basket, "group", "A") != g:
+                for k, b in self.baskets.items():
+                    if getattr(b, "group", "A") == g:
+                        self.active_basket_key = k
+                        break
             self.save_state(self.state_file)
             return True
         return False
@@ -451,7 +551,7 @@ class PaperTradingDaemon:
     # Persistance Disque & Auto-Save
     # =========================================================================
     def save_state(self, file_path: Optional[Path] = None) -> bool:
-        """Sauvegarde l'état complet des 3 portefeuilles de façon atomique sur le disque."""
+        """Sauvegarde l'état complet des 6 portefeuilles de façon atomique sur le disque."""
         target = file_path or self.state_file
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -460,6 +560,7 @@ class PaperTradingDaemon:
                 "saved_at": time.time(),
                 "saved_str": datetime.now(timezone.utc).isoformat(),
                 "active_basket_key": self.active_basket_key,
+                "active_group": self.active_group,
                 "baskets": {}
             }
             for k, b in self.baskets.items():
@@ -538,6 +639,10 @@ class PaperTradingDaemon:
             saved_key = data.get("active_basket_key")
             if saved_key and saved_key in self.baskets:
                 self.active_basket_key = saved_key
+
+            saved_group = data.get("active_group")
+            if saved_group and saved_group in ["A", "B"]:
+                self.active_group = saved_group
 
             print(f"[Paper Trading Daemon] État persistant restauré depuis {target.name}")
             return True
@@ -630,7 +735,8 @@ class PaperTradingDaemon:
                         state_changed = True
 
                         # Alerte mobile de trade clôturé
-                        tag = f"{basket.name} • {strat.name}"
+                        grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
+                        tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                         self.notifier.notify_trade_closed(tag, closed_trade)
 
                         now_str = time.strftime("%H:%M:%S")
@@ -646,13 +752,15 @@ class PaperTradingDaemon:
 
                 # Notification si un ordre limite vient d'être exécuté (Filled)
                 if not had_active_pos and strat.execution.active_position:
-                    tag = f"{basket.name} • {strat.name}"
+                    grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
+                    tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                     self.notifier.notify_position_filled(tag, strat.execution.active_position)
                     state_changed = True
 
                 # Notification si le True Breakeven vient d'être activé
                 if strat.execution.active_position and strat.execution.active_position.get("be_activated") and not strat.execution.active_position.get("_be_notified"):
-                    tag = f"{basket.name} • {strat.name}"
+                    grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
+                    tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                     self.notifier.notify_breakeven_activated(tag, strat.execution.active_position)
                     strat.execution.active_position["_be_notified"] = True
 
@@ -690,7 +798,8 @@ class PaperTradingDaemon:
                         pipeline_result: DeskPipelineResult = strat.professors[sym].route(df, best_bid, best_ask, htf_df=htf_df)
                         if pipeline_result.approved and pipeline_result.proposal:
                             order_ticket = strat.execution.place_bracket_order(pipeline_result.proposal, timeframe=strat.interval)
-                            tag = f"{basket.name} • {strat.name}"
+                            grp_badge = "🔵 [GROUPE A]" if getattr(basket, "group", "A") == "A" else "🟢 [GROUPE B]"
+                            tag = f"{grp_badge} {basket.name} • {strat.name.upper()}"
                             self.notifier.notify_order_placed(tag, order_ticket)
                             state_changed = True
                             break  # Un ordre placé pour cette stratégie à ce cycle
@@ -731,8 +840,33 @@ class PaperTradingDaemon:
         pos_to_show = active_pos if active_pos else active_b.get_active_position_data(self.current_market_prices)
         orders_to_show = active_orders if active_orders else list(active_b.execution.active_orders.values())
 
+        # Synthèse comparative des Groupes A et B
+        group_summaries = {}
+        for grp in ["A", "B"]:
+            grp_baskets = [b for b in self.baskets.values() if getattr(b, 'group', 'A') == grp]
+            tot_bal = sum(b.total_balance for b in grp_baskets)
+            tot_init = sum(b.total_initial_capital for b in grp_baskets)
+            tot_ret_usd = round(tot_bal - tot_init, 2)
+            tot_ret_pct = round((tot_ret_usd / tot_init * 100) if tot_init > 0 else 0.0, 2)
+            all_t = []
+            for b in grp_baskets:
+                all_t.extend(b.all_closed_trades)
+            wr = round((sum(1 for t in all_t if t.get('pnl_usd', 0) > 0) / len(all_t) * 100) if all_t else 0.0, 1)
+            group_summaries[grp] = {
+                "group": grp,
+                "name": "Groupe A (Baseline)" if grp == "A" else "Groupe B (Challenger)",
+                "total_balance": round(tot_bal, 2),
+                "total_initial_capital": round(tot_init, 2),
+                "total_return_usd": tot_ret_usd,
+                "total_return_pct": tot_ret_pct,
+                "trades_count": len(all_t),
+                "win_rate_pct": wr
+            }
+
         return {
             "is_running": self.is_running,
+            "active_group": self.active_group,
+            "group_summaries": group_summaries,
             "active_basket_key": self.active_basket_key,
             "active_basket_name": active_b.name,
             "active_strategy_id": active_b.active_strategy_id,

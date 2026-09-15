@@ -154,7 +154,10 @@ class SMCEngine:
         min_sweep_atr_mult: float = MIN_SWEEP_ATR_MULT,
         stop_buffer_atr_mult: float = STOP_BUFFER_ATR_MULT,
         ob_volume_multiplier: float = OB_VOLUME_MULTIPLIER,
-        min_fvg_size_pct: Optional[float] = None
+        min_fvg_size_pct: Optional[float] = None,
+        is_challenger: bool = False,
+        min_risk_dist_pct: float = 0.0020,
+        compression_filter: bool = False
     ):
         self.swing_window = swing_window
         self.atr_period = atr_period
@@ -163,6 +166,9 @@ class SMCEngine:
         self.stop_buffer_atr_mult = stop_buffer_atr_mult
         self.ob_volume_multiplier = ob_volume_multiplier
         self.min_fvg_size_pct = min_fvg_size_pct
+        self.is_challenger = is_challenger
+        self.min_risk_dist_pct = min_risk_dist_pct
+        self.compression_filter = compression_filter
 
     def calculate_rsi(self, closes: pd.Series, period: int = 14) -> pd.Series:
         """Calcule le RSI de Wilder."""
@@ -563,7 +569,10 @@ class SMCEngine:
         - Configuration 3 Paliers : Tier 1 (+1.5R), Tier 2 (+3.0R), Tier 3 (Runner indicatif +5.0R).
         """
         setups: List[SMCSetupCandidate] = []
-        stop_buffer = self.stop_buffer_atr_mult * current_atr
+        buffer_mult = 0.50 if self.is_challenger else self.stop_buffer_atr_mult
+        stop_buffer = buffer_mult * current_atr
+        min_risk_pct = 0.0060 if self.is_challenger else self.min_risk_dist_pct
+        min_atr_factor = 0.60 if self.is_challenger else 0.40
 
         # Vérifier si des balayages de liquidité récents ont eu lieu
         has_ssl_sweep = False  # Sell-side sweep (favorable pour Long)
@@ -597,7 +606,7 @@ class SMCEngine:
                     risk_dist = entry - sl
 
                     # Filtre Anti-Fee Drag : Stop Loss minimum viable
-                    min_risk_dist = max(entry * 0.0020, 0.40 * current_atr)
+                    min_risk_dist = max(entry * min_risk_pct, min_atr_factor * current_atr)
                     if risk_dist < min_risk_dist:
                         sl = entry - min_risk_dist
                         risk_dist = min_risk_dist
@@ -628,7 +637,7 @@ class SMCEngine:
                     sl = ob.top + stop_buffer
                     risk_dist = sl - entry
 
-                    min_risk_dist = max(entry * 0.0020, 0.40 * current_atr)
+                    min_risk_dist = max(entry * min_risk_pct, min_atr_factor * current_atr)
                     if risk_dist < min_risk_dist:
                         sl = entry + min_risk_dist
                         risk_dist = min_risk_dist
@@ -666,7 +675,7 @@ class SMCEngine:
                     sl = fvg.bottom - stop_buffer
                     risk_dist = entry - sl
 
-                    min_risk_dist = max(entry * 0.0020, 0.40 * current_atr)
+                    min_risk_dist = max(entry * min_risk_pct, min_atr_factor * current_atr)
                     if risk_dist < min_risk_dist:
                         sl = entry - min_risk_dist
                         risk_dist = min_risk_dist
@@ -697,7 +706,7 @@ class SMCEngine:
                     sl = fvg.top + stop_buffer
                     risk_dist = sl - entry
 
-                    min_risk_dist = max(entry * 0.0020, 0.40 * current_atr)
+                    min_risk_dist = max(entry * min_risk_pct, min_atr_factor * current_atr)
                     if risk_dist < min_risk_dist:
                         sl = entry + min_risk_dist
                         risk_dist = min_risk_dist
@@ -792,6 +801,12 @@ class SMCEngine:
         setups = self.generate_setups(trend, obs, fvgs, sweeps, ote, current_atr, n_bars=len(df))
         if is_choppy:
             setups = [s for s in setups if s.has_prior_sweep]
+
+        # Filtre de compression Challenger : Rejeter les signaux si l'ATR est écrasé (< 85% de sa moyenne mobile 20)
+        if self.compression_filter and len(atr_series) >= 20:
+            atr_sma20 = float(atr_series.rolling(20).mean().iloc[-1])
+            if atr_sma20 > 0 and current_atr < 0.85 * atr_sma20:
+                setups = []  # Veto compression : marché plat sans volatilité
 
         return SMCAnalysisResult(
             trend=trend,

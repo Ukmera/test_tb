@@ -357,11 +357,14 @@ class ProfessorAgent:
     def __init__(
         self,
         symbol: str = "BTC",
-        initial_balance: float = 100.0
+        initial_balance: float = 100.0,
+        is_challenger: bool = False,
+        compression_filter: bool = False
     ):
         self.symbol = symbol
         self.balance = initial_balance
-        self.smc = SMCEngine()
+        self.is_challenger = is_challenger
+        self.smc = SMCEngine(is_challenger=is_challenger, compression_filter=compression_filter)
         self.sentinel = MacroSentinelBot()
         self.risk_mgr = RiskManager(current_balance=initial_balance)
 

@@ -66,14 +66,16 @@ def test_multi_basket_isolation_and_switching(tmp_path):
     state = daemon.get_state()
 
 
-    # Vérification des 3 paniers initialisés
+    # Vérification des 6 paniers initialisés (Groupe A + Groupe B)
     assert "baskets" in state
-    assert len(state["baskets"]) == 3
-    assert set(state["baskets"].keys()) == {"alpha", "quad", "core"}
+    assert len(state["baskets"]) == 6
+    assert set(state["baskets"].keys()) == {"alpha", "quad", "core", "alpha_b", "quad_b", "core_b"}
     assert state["active_basket_key"] == "alpha"
+    assert state["active_group"] == "A"
     assert state["baskets"]["alpha"]["symbols"] == ["SOL", "SUI"]
     assert state["baskets"]["quad"]["symbols"] == ["BTC", "SOL", "MNT", "SUI"]
     assert state["baskets"]["core"]["symbols"] == ["BTC", "SOL"]
+    assert state["baskets"]["alpha_b"]["is_challenger"] is True
 
     # Basculement de panier actif
     success = daemon.set_active_basket("quad")
@@ -81,13 +83,20 @@ def test_multi_basket_isolation_and_switching(tmp_path):
     assert daemon.active_basket_key == "quad"
     assert daemon.active_basket.name == "Quad Basket (BTC + SOL + MNT + SUI)"
 
+    # Basculement de groupe actif
+    assert daemon.set_active_group("B") is True
+    assert daemon.active_group == "B"
+    assert daemon.active_basket_key == "alpha_b"
+
+    # Basculement vers un panier inexistant
+    assert daemon.set_active_basket("invalid_basket") is False
+
     # Isolation des portefeuilles : modifier le solde de quad ne touche pas alpha ni core
     daemon.baskets["quad"].current_balance = 125.50
     assert daemon.baskets["alpha"].current_balance == 100.0
     assert daemon.baskets["core"].current_balance == 100.0
 
     state_quad = daemon.get_state()
-    assert state_quad["current_balance"] == 125.50
     assert state_quad["baskets"]["quad"]["current_balance"] == 125.50
     assert state_quad["baskets"]["alpha"]["current_balance"] == 100.0
 

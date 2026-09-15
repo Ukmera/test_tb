@@ -101,6 +101,20 @@ def set_paper_trading_model(model: str = "B") -> Dict[str, Any]:
     return {"status": "success", "model": paper_trader.model, "interval": paper_trader.interval}
 
 
+@app.post("/api/paper-trading/group")
+def set_paper_trading_group(group: str = "A") -> Dict[str, Any]:
+    """Change le groupe A/B actif (A: Baseline vs B: Challenger)."""
+    g = group.upper()
+    if g not in ["A", "B"]:
+        raise HTTPException(status_code=400, detail="Groupe invalide. Utilisez 'A' ou 'B'.")
+    paper_trader.set_active_group(g)
+    return {
+        "status": "success",
+        "active_group": paper_trader.active_group,
+        "active_basket_key": paper_trader.active_basket_key
+    }
+
+
 @app.post("/api/paper-trading/basket")
 def set_paper_trading_basket(basket: str = "alpha") -> Dict[str, Any]:
     """Change le panier actif visualisé dans le dashboard (alpha, quad, core)."""
