@@ -47,7 +47,7 @@ async function switchAbGroup(group) {
             const btn = document.getElementById(`ab-btn-group-${g}`);
             if (btn) btn.classList.toggle("active", currentActiveGroup === g.toUpperCase());
             const cards = document.getElementById(`group-cards-${g}`);
-            if (cards) cards.style.display = (currentActiveGroup === g.toUpperCase()) ? "flex" : "none";
+            if (cards) cards.style.display = (currentActiveGroup === g.toUpperCase()) ? "grid" : "none";
         });
 
         // Notifier le backend
@@ -1359,7 +1359,8 @@ async function loadPaperTradingStatus() {
                 const pill = document.getElementById(`ab-pill-${g}`);
                 if (pill && sum) {
                     const s = sum.total_return_usd >= 0 ? "+" : "";
-                    pill.textContent = `${grpKey} : $${sum.total_balance.toFixed(2)} (${s}${sum.total_return_pct.toFixed(2)}%) | ${sum.trades_count} trd`;
+                    pill.textContent = `$${sum.total_balance.toFixed(2)} (${s}${sum.total_return_pct.toFixed(1)}%)`;
+                    pill.className = `ab-tab-metric ${sum.total_return_usd > 0 ? 'positive' : (sum.total_return_usd < 0 ? 'negative' : 'neutral')}`;
                 }
             });
         }
@@ -1540,7 +1541,7 @@ async function switchActiveBasket(basketKey) {
                 const btn = document.getElementById(`ab-btn-group-${g}`);
                 if (btn) btn.classList.toggle("active", newGroup === g.toUpperCase());
                 const cards = document.getElementById(`group-cards-${g}`);
-                if (cards) cards.style.display = (newGroup === g.toUpperCase()) ? "flex" : "none";
+                if (cards) cards.style.display = (newGroup === g.toUpperCase()) ? "grid" : "none";
             });
         }
 

@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0a0d14">
     <title>GPTHEIST DESK | Hyperliquid SMC Quant Terminal</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2.4.0">
     <!-- TradingView Lightweight Charts Library (Local & Offline Capable) -->
     <script src="/static/lightweight-charts.standalone.js"></script>
 </head>
@@ -136,31 +136,42 @@
         </div>
     </div>
 
-    <!-- A/B Testing Multi-Paniers Banner -->
+    <!-- A/B/C/D Testing Multi-Paniers Banner -->
     <div class="basket-ribbon" id="basket-ribbon">
         <div class="ab-group-switcher">
             <div class="ab-tabs">
                 <button class="ab-tab-btn active" id="ab-btn-group-a" onclick="switchAbGroup('A')">
-                    🔵 GROUPE A : BASELINE
+                    <div class="ab-tab-left">
+                        <span class="ab-tab-dot a-dot"></span>
+                        <span class="ab-tab-title">GROUPE A</span>
+                        <span class="ab-tab-label">Baseline</span>
+                    </div>
+                    <span class="ab-tab-metric negative" id="ab-pill-a">$860.30 (-4.4%)</span>
                 </button>
                 <button class="ab-tab-btn" id="ab-btn-group-b" onclick="switchAbGroup('B')">
-                    🟢 GROUPE B : CHALLENGER
+                    <div class="ab-tab-left">
+                        <span class="ab-tab-dot b-dot"></span>
+                        <span class="ab-tab-title">GROUPE B</span>
+                        <span class="ab-tab-label">Challenger</span>
+                    </div>
+                    <span class="ab-tab-metric negative" id="ab-pill-b">$898.38 (-0.2%)</span>
                 </button>
                 <button class="ab-tab-btn" id="ab-btn-group-c" onclick="switchAbGroup('C')">
-                    🟣 GROUPE C : ALAN BASE
+                    <div class="ab-tab-left">
+                        <span class="ab-tab-dot c-dot"></span>
+                        <span class="ab-tab-title">GROUPE C</span>
+                        <span class="ab-tab-label">Alan Base</span>
+                    </div>
+                    <span class="ab-tab-metric neutral" id="ab-pill-c">$900.00 (+0.0%)</span>
                 </button>
                 <button class="ab-tab-btn" id="ab-btn-group-d" onclick="switchAbGroup('D')">
-                    🔥 GROUPE D : ALAN ULTIMATE
+                    <div class="ab-tab-left">
+                        <span class="ab-tab-dot d-dot"></span>
+                        <span class="ab-tab-title">GROUPE D</span>
+                        <span class="ab-tab-label">Alan Ultimate</span>
+                    </div>
+                    <span class="ab-tab-metric neutral" id="ab-pill-d">$900.00 (+0.0%)</span>
                 </button>
-            </div>
-            <div class="ab-score-summary" id="ab-score-summary">
-                <span class="ab-score-pill a-pill" id="ab-pill-a">A : $860.30 (-4.4%)</span>
-                <span class="ab-vs">|</span>
-                <span class="ab-score-pill b-pill" id="ab-pill-b">B : $898.38 (-0.2%)</span>
-                <span class="ab-vs">|</span>
-                <span class="ab-score-pill c-pill" id="ab-pill-c">C : $900.00 (+0.0%)</span>
-                <span class="ab-vs">|</span>
-                <span class="ab-score-pill d-pill" id="ab-pill-d">D : $900.00 (+0.0%)</span>
             </div>
         </div>
         <div class="basket-cards-container" id="basket-cards-container">
@@ -1216,7 +1227,7 @@
         </div>
     </div>
 
-    <script src="/static/chart.js"></script>
+    <script src="/static/chart.js?v=2.4.0"></script>
 </body>
 </html>
 

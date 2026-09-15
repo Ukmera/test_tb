@@ -74,7 +74,11 @@ def get_dashboard_index():
     index_path = STATIC_DIR / "index.html"
     if not index_path.exists():
         raise HTTPException(status_code=404, detail="Dashboard UI not found.")
-    return FileResponse(index_path)
+    return FileResponse(index_path, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    })
 
 
 @app.get("/api/paper-trading")
