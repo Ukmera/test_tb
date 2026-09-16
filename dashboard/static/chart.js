@@ -1905,6 +1905,17 @@ async function loadNotificationStatus() {
             if (modalDot) modalDot.classList.remove("connected");
             if (modalStatus) modalStatus.textContent = "Non configuré (en attente du token)";
         }
+
+        // Configuration des filtres d'alertes anti-spam
+        const chkOrderPlaced = document.getElementById("chk-tg-order-placed");
+        const chkPosFilled = document.getElementById("chk-tg-position-filled");
+        const chkTradeClosed = document.getElementById("chk-tg-trade-closed");
+        const chkBreakeven = document.getElementById("chk-tg-breakeven");
+
+        if (chkOrderPlaced && typeof data.notify_order_placed === "boolean") chkOrderPlaced.checked = data.notify_order_placed;
+        if (chkPosFilled && typeof data.notify_position_filled === "boolean") chkPosFilled.checked = data.notify_position_filled;
+        if (chkTradeClosed && typeof data.notify_trade_closed === "boolean") chkTradeClosed.checked = data.notify_trade_closed;
+        if (chkBreakeven && typeof data.notify_breakeven === "boolean") chkBreakeven.checked = data.notify_breakeven;
     } catch (e) {
         console.warn("[Notifications] Impossible de charger le statut:", e);
     }
@@ -2042,11 +2053,25 @@ function setupTelegramModalListeners() {
                 return;
             }
 
+            const chkOrderPlaced = document.getElementById("chk-tg-order-placed");
+            const chkPosFilled = document.getElementById("chk-tg-position-filled");
+            const chkTradeClosed = document.getElementById("chk-tg-trade-closed");
+            const chkBreakeven = document.getElementById("chk-tg-breakeven");
+
+            const payload = {
+                token: token,
+                chat_id: chatId,
+                notify_order_placed: chkOrderPlaced ? chkOrderPlaced.checked : false,
+                notify_position_filled: chkPosFilled ? chkPosFilled.checked : true,
+                notify_trade_closed: chkTradeClosed ? chkTradeClosed.checked : true,
+                notify_breakeven: chkBreakeven ? chkBreakeven.checked : false
+            };
+
             try {
                 const resp = await fetch("/api/notifications/telegram/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ token: token, chat_id: chatId })
+                    body: JSON.stringify(payload)
                 });
                 const res = await resp.json();
                 if (res.status === "success") {

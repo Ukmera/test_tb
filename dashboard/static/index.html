@@ -1209,6 +1209,31 @@
                     <input type="text" id="input-tg-chat-id" class="form-input" placeholder="Ex: 987654321">
                 </div>
 
+                <!-- Filtrage anti-surcharge mobile -->
+                <div style="margin-top: 14px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                    <label class="form-label" style="margin-bottom: 8px; font-weight: 700; color: #00d2ff; display: flex; align-items: center; gap: 6px;">
+                        <span>🔕 FILTRAGE DES ALERTES (ANTI-SPAM SMARTPHONE)</span>
+                    </label>
+                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.8rem; color: #cbd5e1;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="chk-tg-order-placed" style="cursor: pointer;">
+                            <span>⏳ Nouveaux ordres limites posés <span style="color: var(--text-muted); font-size: 0.72rem;">(Désactivé : évite les alertes pour ordres non exécutés)</span></span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="chk-tg-position-filled" checked style="cursor: pointer;">
+                            <span>⚡ <b>Positions ouvertes</b> (Ordres exécutés en direct)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="chk-tg-trade-closed" checked style="cursor: pointer;">
+                            <span>💰 <b>Positions fermées</b> (Sorties TP / SL avec bilan PnL & solde)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="chk-tg-breakeven" style="cursor: pointer;">
+                            <span>🛡️ True Breakeven activé (+1R sécurisé)</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 8px; margin-top: 14px;">
                     <button id="btn-tg-test" class="btn" style="flex: 1; border-color: #00d2ff; color: #00d2ff; justify-content: center;">
                         🚀 Envoyer un test sur mon téléphone
@@ -1227,7 +1252,8 @@
         </div>
     </div>
 
-    <script src="/static/chart.js?v=2.4.0"></script>
+    <script src="/static/chart.js?v=2.5.0"></script>
 </body>
 </html>
+
 

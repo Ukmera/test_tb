@@ -174,6 +174,10 @@ class TelegramTestRequest(BaseModel):
 class TelegramSaveRequest(BaseModel):
     token: str
     chat_id: str
+    notify_order_placed: Optional[bool] = False
+    notify_position_filled: Optional[bool] = True
+    notify_trade_closed: Optional[bool] = True
+    notify_breakeven: Optional[bool] = False
 
 
 @app.get("/api/notifications/status")
@@ -196,10 +200,17 @@ def test_telegram_notification(req: TelegramTestRequest) -> Dict[str, Any]:
 
 @app.post("/api/notifications/telegram/save")
 def save_telegram_config(req: TelegramSaveRequest) -> Dict[str, Any]:
-    """Enregistre les identifiants Telegram dans le fichier .env et met à jour l'instance active."""
+    """Enregistre les identifiants et filtres Telegram dans le fichier .env et met à jour l'instance active."""
     token = req.token.strip()
     chat_id = req.chat_id.strip()
-    paper_trader.notifier.update_telegram_credentials(token, chat_id)
+    paper_trader.notifier.update_telegram_credentials(
+        token=token,
+        chat_id=chat_id,
+        notify_order_placed=req.notify_order_placed,
+        notify_position_filled=req.notify_position_filled,
+        notify_trade_closed=req.notify_trade_closed,
+        notify_breakeven=req.notify_breakeven
+    )
 
     # Sauvegarde persistante dans .env local
     env_path = BASE_DIR / ".env"
@@ -208,7 +219,14 @@ def save_telegram_config(req: TelegramSaveRequest) -> Dict[str, Any]:
         with open(env_path, "r", encoding="utf-8") as f:
             existing_lines = f.readlines()
 
-    keys_to_set = {"TELEGRAM_BOT_TOKEN": token, "TELEGRAM_CHAT_ID": chat_id}
+    keys_to_set = {
+        "TELEGRAM_BOT_TOKEN": token,
+        "TELEGRAM_CHAT_ID": chat_id,
+        "TELEGRAM_NOTIFY_ORDER_PLACED": str(bool(req.notify_order_placed)).lower(),
+        "TELEGRAM_NOTIFY_POSITION_FILLED": str(bool(req.notify_position_filled)).lower(),
+        "TELEGRAM_NOTIFY_TRADE_CLOSED": str(bool(req.notify_trade_closed)).lower(),
+        "TELEGRAM_NOTIFY_BREAKEVEN": str(bool(req.notify_breakeven)).lower(),
+    }
     new_lines = []
     for line in existing_lines:
         line_clean = line.strip()
@@ -228,9 +246,10 @@ def save_telegram_config(req: TelegramSaveRequest) -> Dict[str, Any]:
 
     return {
         "status": "success",
-        "message": "Identifiants Telegram enregistrés avec succès.",
+        "message": "Identifiants et préférences Telegram enregistrés avec succès.",
         "notifier_status": paper_trader.notifier.get_status()
     }
+
 
 
 

@@ -2,7 +2,15 @@ import os
 import time
 import requests
 from typing import Dict, Any, List, Optional
-from config.settings import DISCORD_WEBHOOK_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from config.settings import (
+    DISCORD_WEBHOOK_URL,
+    TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID,
+    TELEGRAM_NOTIFY_ORDER_PLACED,
+    TELEGRAM_NOTIFY_POSITION_FILLED,
+    TELEGRAM_NOTIFY_TRADE_CLOSED,
+    TELEGRAM_NOTIFY_BREAKEVEN
+)
 
 
 class NotificationManager:
@@ -10,17 +18,37 @@ class NotificationManager:
     Gestionnaire unifié d'alertes temps réel pour Telegram et Discord.
     Notifie instantanément sur smartphone les ordres, exécutions, TP, SL et bilans.
     Gère gracieusement l'absence de clé ou les coupures réseau sans bloquer le desk.
+    Comporte un système de filtrage anti-surcharge pour Telegram (seules les positions ouvertes
+    et fermées sont notifiées par défaut sur mobile).
     """
     def __init__(
         self,
         discord_webhook_url: Optional[str] = None,
         telegram_token: Optional[str] = None,
-        telegram_chat_id: Optional[str] = None
+        telegram_chat_id: Optional[str] = None,
+        telegram_notify_order_placed: Optional[bool] = None,
+        telegram_notify_position_filled: Optional[bool] = None,
+        telegram_notify_trade_closed: Optional[bool] = None,
+        telegram_notify_breakeven: Optional[bool] = None
     ):
         self.discord_url = discord_webhook_url if discord_webhook_url is not None else DISCORD_WEBHOOK_URL
         self.tg_token = telegram_token if telegram_token is not None else TELEGRAM_BOT_TOKEN
         self.tg_chat_id = telegram_chat_id if telegram_chat_id is not None else TELEGRAM_CHAT_ID
         self.enabled = bool(self.discord_url or (self.tg_token and self.tg_chat_id))
+
+        # Filtres anti-bruit pour smartphone (seuls les trades exécutés et sorties sont poussés par défaut)
+        self.tg_notify_order_placed = (
+            telegram_notify_order_placed if telegram_notify_order_placed is not None else TELEGRAM_NOTIFY_ORDER_PLACED
+        )
+        self.tg_notify_position_filled = (
+            telegram_notify_position_filled if telegram_notify_position_filled is not None else TELEGRAM_NOTIFY_POSITION_FILLED
+        )
+        self.tg_notify_trade_closed = (
+            telegram_notify_trade_closed if telegram_notify_trade_closed is not None else TELEGRAM_NOTIFY_TRADE_CLOSED
+        )
+        self.tg_notify_breakeven = (
+            telegram_notify_breakeven if telegram_notify_breakeven is not None else TELEGRAM_NOTIFY_BREAKEVEN
+        )
 
     def _send_discord(self, title: str, description: str, color_hex: int = 0x2962FF, fields: Optional[List[Dict[str, str]]] = None):
         if not self.discord_url:
@@ -56,11 +84,44 @@ class NotificationManager:
         except Exception as e:
             print(f"[Notifications Warning] Telegram error: {e}")
 
-    def update_telegram_credentials(self, token: str, chat_id: str):
-        """Met à jour les identifiants Telegram en mémoire."""
+    def update_telegram_credentials(
+        self,
+        token: str,
+        chat_id: str,
+        notify_order_placed: Optional[bool] = None,
+        notify_position_filled: Optional[bool] = None,
+        notify_trade_closed: Optional[bool] = None,
+        notify_breakeven: Optional[bool] = None
+    ):
+        """Met à jour les identifiants Telegram et les filtres d'alerte en mémoire."""
         self.tg_token = token.strip()
         self.tg_chat_id = chat_id.strip()
         self.enabled = bool(self.discord_url or (self.tg_token and self.tg_chat_id))
+        if notify_order_placed is not None:
+            self.tg_notify_order_placed = notify_order_placed
+        if notify_position_filled is not None:
+            self.tg_notify_position_filled = notify_position_filled
+        if notify_trade_closed is not None:
+            self.tg_notify_trade_closed = notify_trade_closed
+        if notify_breakeven is not None:
+            self.tg_notify_breakeven = notify_breakeven
+
+    def update_filters(
+        self,
+        notify_order_placed: Optional[bool] = None,
+        notify_position_filled: Optional[bool] = None,
+        notify_trade_closed: Optional[bool] = None,
+        notify_breakeven: Optional[bool] = None
+    ):
+        """Met à jour les préférences de filtrage Telegram."""
+        if notify_order_placed is not None:
+            self.tg_notify_order_placed = notify_order_placed
+        if notify_position_filled is not None:
+            self.tg_notify_position_filled = notify_position_filled
+        if notify_trade_closed is not None:
+            self.tg_notify_trade_closed = notify_trade_closed
+        if notify_breakeven is not None:
+            self.tg_notify_breakeven = notify_breakeven
 
     def get_status(self) -> Dict[str, Any]:
         """Retourne le statut actuel des intégrations de notifications."""
@@ -71,7 +132,11 @@ class NotificationManager:
             "telegram_configured": bool(self.tg_token and self.tg_chat_id),
             "telegram_token_masked": masked_token,
             "telegram_chat_id": self.tg_chat_id,
-            "discord_configured": bool(self.discord_url)
+            "discord_configured": bool(self.discord_url),
+            "notify_order_placed": self.tg_notify_order_placed,
+            "notify_position_filled": self.tg_notify_position_filled,
+            "notify_trade_closed": self.tg_notify_trade_closed,
+            "notify_breakeven": self.tg_notify_breakeven
         }
 
     def detect_chat_id(self, token: Optional[str] = None) -> Dict[str, Any]:
@@ -126,12 +191,11 @@ class NotificationManager:
 
         test_msg = (
             "🚀 <b>GPTHEIST DESK : Connexion Smartphone Réussie !</b>\n\n"
-            "📱 Votre téléphone est désormais synchronisé avec le desk institutionnel.\n"
-            "Vous recevrez automatiquement ici :\n"
-            "• ⏳ Nouveaux ordres Limits posés\n"
-            "• ⚡ Exécutions de positions en direct\n"
-            "• 🛡️ Sécurisation Breakeven (+1R)\n"
-            "• 💰 Clôtures TP/SL avec bilan PnL net & ROI.\n\n"
+            "📱 Votre téléphone est synchronisé avec le desk institutionnel.\n"
+            "Alertes actives (mode allégé anti-surcharge) :\n"
+            "• ⚡ Exécutions de positions en direct (Entrées)\n"
+            "• 💰 Clôtures TP/SL avec bilan PnL net & ROI\n\n"
+            "<i>(Les ordres limites posés non exécutés sont filtrés pour ne pas surcharger votre messagerie.)</i>\n\n"
             "<i>Système opérationnel 24/7 sur Render.</i>"
         )
         url = f"https://api.telegram.org/bot{tgt}/sendMessage"
@@ -172,15 +236,16 @@ class NotificationManager:
         ]
         self._send_discord(title, desc, color_hex=0xFFB000, fields=fields)
 
-        tg_msg = (
-            f"⏳ <b>NOUVEL ORDRE [{basket_name}]</b>\n"
-            f"<b>{side} {sym}</b> @ ${px}\n"
-            f"🛑 Stop Loss: ${sl}\n"
-            f"🎯 Take Profit: ${tp}\n"
-            f"🛡️ Risque: ${risk_usd:.2f} (1%)\n"
-            f"⭐ Grade: {order.get('grade', 'SMC')}"
-        )
-        self._send_telegram(tg_msg)
+        if self.tg_notify_order_placed:
+            tg_msg = (
+                f"⏳ <b>NOUVEL ORDRE [{basket_name}]</b>\n"
+                f"<b>{side} {sym}</b> @ ${px}\n"
+                f"🛑 Stop Loss: ${sl}\n"
+                f"🎯 Take Profit: ${tp}\n"
+                f"🛡️ Risque: ${risk_usd:.2f} (1%)\n"
+                f"⭐ Grade: {order.get('grade', 'SMC')}"
+            )
+            self._send_telegram(tg_msg)
 
     def notify_position_filled(self, basket_name: str, pos: Dict[str, Any]):
         """Notifie l'exécution d'un ordre limite et l'entrée en position."""
@@ -199,13 +264,14 @@ class NotificationManager:
         ]
         self._send_discord(title, desc, color_hex=0x00D2FF, fields=fields)
 
-        tg_msg = (
-            f"⚡ <b>POSITION OUVERTE [{basket_name}]</b>\n"
-            f"<b>{side} {sym}</b> exécuté @ ${px}\n"
-            f"Taille: {sz} ({pos.get('notional_usd', 0):.1f}$)\n"
-            f"SL initial: ${pos.get('stop_loss', 0)}"
-        )
-        self._send_telegram(tg_msg)
+        if self.tg_notify_position_filled:
+            tg_msg = (
+                f"⚡ <b>POSITION OUVERTE [{basket_name}]</b>\n"
+                f"<b>{side} {sym}</b> exécuté @ ${px}\n"
+                f"Taille: {sz} ({pos.get('notional_usd', 0):.1f}$)\n"
+                f"SL initial: ${pos.get('stop_loss', 0)}"
+            )
+            self._send_telegram(tg_msg)
 
     def notify_breakeven_activated(self, basket_name: str, pos: Dict[str, Any]):
         """Notifie l'activation du True Breakeven (+ frais garantis)."""
@@ -216,13 +282,14 @@ class NotificationManager:
         desc = f"Le Stop Loss de **{sym}** a été déplacé à ${be_px} (trade sans risque, frais couverts)."
         self._send_discord(title, desc, color_hex=0xFFD700)
 
-        tg_msg = (
-            f"🛡️ <b>TRUE BREAKEVEN ACTIVÉ [{basket_name}]</b>\n"
-            f"Asset: <b>{sym}</b>\n"
-            f"Le Stop Loss est désormais sécurisé à <b>${be_px}</b>\n"
-            f"<i>Risque résiduel = 0.00$ (frais d'échange inclus).</i>"
-        )
-        self._send_telegram(tg_msg)
+        if self.tg_notify_breakeven:
+            tg_msg = (
+                f"🛡️ <b>TRUE BREAKEVEN ACTIVÉ [{basket_name}]</b>\n"
+                f"Asset: <b>{sym}</b>\n"
+                f"Le Stop Loss est désormais sécurisé à <b>${be_px}</b>\n"
+                f"<i>Risque résiduel = 0.00$ (frais d'échange inclus).</i>"
+            )
+            self._send_telegram(tg_msg)
 
     def notify_trade_closed(self, basket_name: str, trade: Dict[str, Any]):
         """Notifie la clôture d'un trade avec PnL et multiple R."""
@@ -248,11 +315,13 @@ class NotificationManager:
         ]
         self._send_discord(title, desc, color_hex=color, fields=fields)
 
-        tg_msg = (
-            f"{emoji} <b>TRADE CLÔTURÉ [{basket_name}]</b>\n"
-            f"Asset: <b>{sym}</b> [{reason}]\n"
-            f"PnL: <b>{pnl:+.2f}$ ({r_mult:+.1f}R)</b>\n"
-            f"Nouveau solde: <b>${bal:.2f}</b>\n"
-            f"Entrée: ${trade.get('entry_price', 0)} | Sortie: ${trade.get('exit_price', 0)}"
-        )
-        self._send_telegram(tg_msg)
+        if self.tg_notify_trade_closed:
+            tg_msg = (
+                f"{emoji} <b>TRADE CLÔTURÉ [{basket_name}]</b>\n"
+                f"Asset: <b>{sym}</b> [{reason}]\n"
+                f"PnL: <b>{pnl:+.2f}$ ({r_mult:+.1f}R)</b>\n"
+                f"Nouveau solde: <b>${bal:.2f}</b>\n"
+                f"Entrée: ${trade.get('entry_price', 0)} | Sortie: ${trade.get('exit_price', 0)}"
+            )
+            self._send_telegram(tg_msg)
+

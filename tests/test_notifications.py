@@ -26,7 +26,7 @@ def test_notification_manager_discord_and_telegram_calls(mock_post):
     )
     assert mgr.enabled is True
 
-    # 1. Order Placed
+    # 1. Order Placed (Par défaut: filtré pour Telegram, envoyé uniquement à Discord pour éviter le spam)
     mgr.notify_order_placed("Alpha Duo", {
         "symbol": "SOL",
         "entry_price": 102.5,
@@ -36,9 +36,21 @@ def test_notification_manager_discord_and_telegram_calls(mock_post):
         "notional_usd": 100.0,
         "grade": "5_STAR_OB"
     })
+    assert mock_post.call_count == 1  # 1 Discord uniquement, 0 Telegram
+
+    # 2. Position Filled (Position réellement ouverte: envoyé à Discord ET Telegram)
+    mock_post.reset_mock()
+    mgr.notify_position_filled("Alpha Duo", {
+        "symbol": "SOL",
+        "entry_price": 102.5,
+        "is_long": True,
+        "size": 1.0,
+        "notional_usd": 102.5,
+        "stop_loss": 101.0
+    })
     assert mock_post.call_count == 2  # 1 Discord + 1 Telegram
 
-    # 2. Trade Closed
+    # 3. Trade Closed (Position fermée: envoyé à Discord ET Telegram)
     mock_post.reset_mock()
     mgr.notify_trade_closed("Alpha Duo", {
         "symbol": "SOL",
@@ -49,7 +61,18 @@ def test_notification_manager_discord_and_telegram_calls(mock_post):
         "entry_price": 102.5,
         "exit_price": 100.0
     })
-    assert mock_post.call_count == 2
+    assert mock_post.call_count == 2  # 1 Discord + 1 Telegram
+
+    # 4. Si activation explicite du placement d'ordre sur Telegram
+    mgr.update_filters(notify_order_placed=True)
+    mock_post.reset_mock()
+    mgr.notify_order_placed("Alpha Duo", {
+        "symbol": "BTC",
+        "entry_price": 60000.0,
+        "is_long": True
+    })
+    assert mock_post.call_count == 2  # 1 Discord + 1 Telegram
+
 
 
 @patch("requests.get")

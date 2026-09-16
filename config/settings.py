@@ -60,3 +60,10 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8962218943:AAHiQxhjZuToHpaaw-SPLfusYkVtO265-hQ")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1737414533")
 
+# --- FILTRES DE NOTIFICATIONS TELEGRAM (ANTI-SPAM SMARTPHONE) ---
+# Seules les positions réellement ouvertes (exécutées) et fermées (TP/SL) sont notifiées par défaut
+TELEGRAM_NOTIFY_ORDER_PLACED = os.getenv("TELEGRAM_NOTIFY_ORDER_PLACED", "false").lower() in ("true", "1", "yes")
+TELEGRAM_NOTIFY_POSITION_FILLED = os.getenv("TELEGRAM_NOTIFY_POSITION_FILLED", "true").lower() in ("true", "1", "yes")
+TELEGRAM_NOTIFY_TRADE_CLOSED = os.getenv("TELEGRAM_NOTIFY_TRADE_CLOSED", "true").lower() in ("true", "1", "yes")
+TELEGRAM_NOTIFY_BREAKEVEN = os.getenv("TELEGRAM_NOTIFY_BREAKEVEN", "false").lower() in ("true", "1", "yes")
+

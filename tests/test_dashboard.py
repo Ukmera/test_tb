@@ -164,16 +164,33 @@ def test_api_notifications_endpoints(tmp_path):
         assert test_resp.status_code == 200
         assert test_resp.json()["success"] is True
 
-    # 4. Save Config (Using tmp .env)
+    # 4. Save Config with filters (Using tmp .env)
     fake_env = tmp_path / ".env"
     with patch("dashboard.app.BASE_DIR", tmp_path):
-        save_resp = client.post("/api/notifications/telegram/save", json={"token": "123:ABC", "chat_id": "998877"})
+        save_resp = client.post(
+            "/api/notifications/telegram/save",
+            json={
+                "token": "123:ABC",
+                "chat_id": "998877",
+                "notify_order_placed": False,
+                "notify_position_filled": True,
+                "notify_trade_closed": True,
+                "notify_breakeven": False
+            }
+        )
         assert save_resp.status_code == 200
         assert save_resp.json()["status"] == "success"
+        notifier_status = save_resp.json()["notifier_status"]
+        assert notifier_status["notify_order_placed"] is False
+        assert notifier_status["notify_position_filled"] is True
+        assert notifier_status["notify_trade_closed"] is True
         assert fake_env.exists()
         content = fake_env.read_text()
         assert "TELEGRAM_BOT_TOKEN=123:ABC" in content
         assert "TELEGRAM_CHAT_ID=998877" in content
+        assert "TELEGRAM_NOTIFY_ORDER_PLACED=false" in content
+        assert "TELEGRAM_NOTIFY_POSITION_FILLED=true" in content
+
 
 
 
