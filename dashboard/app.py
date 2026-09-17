@@ -63,6 +63,23 @@ def _paper_trading_background_loop():
 _bg_thread = threading.Thread(target=_paper_trading_background_loop, daemon=True)
 _bg_thread.start()
 
+def _render_keepalive_ping_loop():
+    """Ping Render toutes les 9 minutes si RENDER_EXTERNAL_URL est présent pour éviter la mise en veille."""
+    ext_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    if not ext_url:
+        return
+    print(f"[Render Keep-Alive] Activé pour {ext_url} (ping toutes les 9 minutes).")
+    while True:
+        time.sleep(540)  # 9 minutes (< 15 min idle limit)
+        try:
+            requests.get(f"{ext_url}/api/notifications/status", timeout=10)
+        except Exception as e:
+            print(f"[Render Keep-Alive Warning] {e}")
+
+_ping_thread = threading.Thread(target=_render_keepalive_ping_loop, daemon=True)
+_ping_thread.start()
+
+
 STATIC_DIR = BASE_DIR / "dashboard" / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 

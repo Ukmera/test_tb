@@ -4,6 +4,8 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, List
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pandas as pd
 from config.settings import HYPERLIQUID_MAINNET_API, BASE_DIR
 
@@ -15,12 +17,37 @@ class HyperliquidDataFeed:
     def __init__(self, api_url: str = HYPERLIQUID_MAINNET_API):
         self.api_url = api_url.rstrip("/")
         self.info_url = f"{self.api_url}/info"
+        self.session: Optional[requests.Session] = None
+        self._init_session()
         self._candle_cache: Dict[str, Tuple[float, pd.DataFrame]] = {}
         self._order_book_cache: Dict[str, Tuple[float, Tuple[float, float, float]]] = {}
         self._asset_ctx_cache: Dict[str, Dict[str, Any]] = {}
         self._asset_ctx_cache_time: float = 0.0
         self._fng_cache: Dict[str, Any] = {"value": 50, "classification": "Neutral", "timestamp": None}
         self._fng_cache_time: float = 0.0
+
+    def _init_session(self):
+        """Initialise ou recycle une session HTTP persistante avec pooling de connexions et retries auto."""
+        if self.session is not None:
+            try:
+                self.session.close()
+            except Exception:
+                pass
+        self.session = requests.Session()
+        retries = Retry(
+            total=3,
+            backoff_factor=0.2,
+            status_forcelist=[429, 500, 502, 503, 504],
+            raise_on_status=False
+        )
+        adapter = HTTPAdapter(pool_connections=30, pool_maxsize=30, max_retries=retries)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+        self.session.headers.update({
+            "Content-Type": "application/json",
+            "Connection": "keep-alive"
+        })
+
 
     def fetch_candles(
         self,
@@ -78,7 +105,7 @@ class HyperliquidDataFeed:
 
         headers = {"Content-Type": "application/json"}
         try:
-            resp = requests.post(self.info_url, json=payload, headers=headers, timeout=10)
+            resp = self.session.post(self.info_url, json=payload, headers=headers, timeout=10)
             resp.raise_for_status()
             data = resp.json()
 
@@ -106,6 +133,7 @@ class HyperliquidDataFeed:
             return df.tail(limit_candles).copy()
         except Exception as e:
             print(f"[DataFeed Error] Échec de la récupération des bougies {coin} ({interval}): {e}")
+            self._init_session()
             if cache_key in self._candle_cache:
                 print(f"[DataFeed Cache] Utilisation des bougies {coin} ({interval}) en cache mémoire.")
                 return self._candle_cache[cache_key][1].tail(limit_candles).copy()
@@ -127,7 +155,7 @@ class HyperliquidDataFeed:
             "coin": coin
         }
         try:
-            resp = requests.post(self.info_url, json=payload, headers={"Content-Type": "application/json"}, timeout=4)
+            resp = self.session.post(self.info_url, json=payload, headers={"Content-Type": "application/json"}, timeout=4)
             resp.raise_for_status()
             book = resp.json()
             levels = book.get("levels", [])
@@ -140,6 +168,7 @@ class HyperliquidDataFeed:
                 return res
         except Exception as e:
             print(f"[DataFeed Error] Impossible de lire le carnet d'ordres pour {coin}: {e}")
+            self._init_session()
             if coin in self._order_book_cache:
                 return self._order_book_cache[coin][1]
         return 0.0, 0.0, 1.0
@@ -155,7 +184,7 @@ class HyperliquidDataFeed:
 
         payload = {"type": "metaAndAssetCtxs"}
         try:
-            resp = requests.post(f"{self.api_url}/info", json=payload, headers={"Content-Type": "application/json"}, timeout=5)
+            resp = self.session.post(self.info_url, json=payload, headers={"Content-Type": "application/json"}, timeout=5)
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, list) and len(data) >= 2:
@@ -182,9 +211,10 @@ class HyperliquidDataFeed:
                 return result
         except Exception as e:
             print(f"[DataFeed Warning] Échec récupération asset contexts: {e}")
+            self._init_session()
             if self._asset_ctx_cache:
                 return self._asset_ctx_cache
-        return {}
+            return {}
 
     def fetch_fear_and_greed(self) -> Dict[str, Any]:
         """
@@ -196,7 +226,7 @@ class HyperliquidDataFeed:
             return self._fng_cache
 
         try:
-            resp = requests.get("https://api.alternative.me/fng/?limit=1", timeout=4)
+            resp = self.session.get("https://api.alternative.me/fng/?limit=1", timeout=4)
             resp.raise_for_status()
             data = resp.json()
             items = data.get("data", [])
@@ -213,6 +243,7 @@ class HyperliquidDataFeed:
                 return res
         except Exception as e:
             print(f"[DataFeed Warning] Échec récupération Fear & Greed: {e}")
+            self._init_session()
             if self._fng_cache:
                 return self._fng_cache
         return {"value": 50, "classification": "Neutral", "timestamp": None}
