@@ -1187,6 +1187,7 @@
                 <div class="form-group" style="margin-top: 10px;">
                     <label class="form-label">TELEGRAM BOT TOKEN :</label>
                     <input type="text" id="input-tg-token" class="form-input" placeholder="Ex: 1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ...">
+                    <div id="tg-token-hint" style="font-size: 0.72rem; color: #00d2ff; margin-top: 4px; display: none;">✓ Token actif détecté. Laissez ce champ vide pour le conserver.</div>
                 </div>
 
                 <div class="tg-guide-steps" style="margin-top: 12px;">
@@ -1228,8 +1229,8 @@
                             <span>💰 <b>Positions fermées</b> (Sorties TP / SL avec bilan PnL & solde)</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="chk-tg-breakeven" style="cursor: pointer;">
-                            <span>🛡️ True Breakeven activé (+1R sécurisé)</span>
+                            <input type="checkbox" id="chk-tg-breakeven" checked style="cursor: pointer;">
+                            <span>🛡️ <b>True Breakeven activé</b> (+1R sécurisé)</span>
                         </label>
                     </div>
                 </div>
@@ -1252,7 +1253,7 @@
         </div>
     </div>
 
-    <script src="/static/chart.js?v=2.5.0"></script>
+    <script src="/static/chart.js?v=2.5.1"></script>
 </body>
 </html>
 

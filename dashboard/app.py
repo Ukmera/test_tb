@@ -172,12 +172,12 @@ class TelegramTestRequest(BaseModel):
 
 
 class TelegramSaveRequest(BaseModel):
-    token: str
-    chat_id: str
+    token: Optional[str] = ""
+    chat_id: Optional[str] = ""
     notify_order_placed: Optional[bool] = False
     notify_position_filled: Optional[bool] = True
     notify_trade_closed: Optional[bool] = True
-    notify_breakeven: Optional[bool] = False
+    notify_breakeven: Optional[bool] = True
 
 
 @app.get("/api/notifications/status")
@@ -201,8 +201,22 @@ def test_telegram_notification(req: TelegramTestRequest) -> Dict[str, Any]:
 @app.post("/api/notifications/telegram/save")
 def save_telegram_config(req: TelegramSaveRequest) -> Dict[str, Any]:
     """Enregistre les identifiants et filtres Telegram dans le fichier .env et met à jour l'instance active."""
-    token = req.token.strip()
-    chat_id = req.chat_id.strip()
+    token = req.token.strip() if req.token else ""
+    chat_id = req.chat_id.strip() if req.chat_id else ""
+
+    # Si token ou chat_id n'est pas ré-encodé, conserver les identifiants actifs déjà configurés
+    if not token and paper_trader.notifier.tg_token:
+        token = paper_trader.notifier.tg_token
+    if not chat_id and paper_trader.notifier.tg_chat_id:
+        chat_id = paper_trader.notifier.tg_chat_id
+
+    if not token or not chat_id:
+        return {
+            "status": "error",
+            "message": "Token ou Chat ID manquant. Veuillez renseigner ces informations pour configurer Telegram.",
+            "notifier_status": paper_trader.notifier.get_status()
+        }
+
     paper_trader.notifier.update_telegram_credentials(
         token=token,
         chat_id=chat_id,
@@ -211,6 +225,7 @@ def save_telegram_config(req: TelegramSaveRequest) -> Dict[str, Any]:
         notify_trade_closed=req.notify_trade_closed,
         notify_breakeven=req.notify_breakeven
     )
+
 
     # Sauvegarde persistante dans .env local
     env_path = BASE_DIR / ".env"

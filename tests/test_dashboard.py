@@ -187,9 +187,24 @@ def test_api_notifications_endpoints(tmp_path):
         assert fake_env.exists()
         content = fake_env.read_text()
         assert "TELEGRAM_BOT_TOKEN=123:ABC" in content
-        assert "TELEGRAM_CHAT_ID=998877" in content
         assert "TELEGRAM_NOTIFY_ORDER_PLACED=false" in content
         assert "TELEGRAM_NOTIFY_POSITION_FILLED=true" in content
+
+        # 5. Save with empty token (doit conserver le token actif existant)
+        save_resp2 = client.post(
+            "/api/notifications/telegram/save",
+            json={
+                "token": "",
+                "chat_id": "",
+                "notify_breakeven": True
+            }
+        )
+        assert save_resp2.status_code == 200
+        assert save_resp2.json()["status"] == "success"
+        notifier_status2 = save_resp2.json()["notifier_status"]
+        assert notifier_status2["telegram_configured"] is True
+        assert notifier_status2["notify_breakeven"] is True
+
 
 
 

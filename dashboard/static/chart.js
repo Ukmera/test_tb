@@ -1879,11 +1879,15 @@ function stepBackward() {
 // ==========================================================================
 // Notifications & Telegram Smartphone Integration
 // ==========================================================================
+let isTelegramConfigured = false;
+
 async function loadNotificationStatus() {
     try {
         const resp = await fetch("/api/notifications/status");
         if (!resp.ok) return;
         const data = await resp.json();
+
+        isTelegramConfigured = Boolean(data.telegram_configured);
 
         const headerStatus = document.getElementById("header-tg-status");
         const btnHeader = document.getElementById("btn-open-telegram");
@@ -1891,6 +1895,7 @@ async function loadNotificationStatus() {
         const modalStatus = document.getElementById("tg-modal-status-text");
         const inputToken = document.getElementById("input-tg-token");
         const inputChatId = document.getElementById("input-tg-chat-id");
+        const tokenHint = document.getElementById("tg-token-hint");
 
         if (data.telegram_configured) {
             if (headerStatus) headerStatus.textContent = "Telegram 🟢";
@@ -1899,11 +1904,13 @@ async function loadNotificationStatus() {
             if (modalStatus) modalStatus.textContent = `Connecté au smartphone (Chat ID: ${data.telegram_chat_id})`;
             if (inputToken && data.telegram_token_masked) inputToken.placeholder = `Token actif : ${data.telegram_token_masked}`;
             if (inputChatId && data.telegram_chat_id) inputChatId.value = data.telegram_chat_id;
+            if (tokenHint) tokenHint.style.display = "block";
         } else {
             if (headerStatus) headerStatus.textContent = "Telegram 📱";
             if (btnHeader) btnHeader.classList.remove("connected");
             if (modalDot) modalDot.classList.remove("connected");
             if (modalStatus) modalStatus.textContent = "Non configuré (en attente du token)";
+            if (tokenHint) tokenHint.style.display = "none";
         }
 
         // Configuration des filtres d'alertes anti-spam
@@ -1936,6 +1943,7 @@ function setupTelegramModalListeners() {
     if (btnOpen && modal) {
         btnOpen.addEventListener("click", () => {
             modal.style.display = "flex";
+            if (feedback) feedback.textContent = "";
             loadNotificationStatus();
         });
     }
@@ -2008,6 +2016,14 @@ function setupTelegramModalListeners() {
             const token = inputToken ? inputToken.value.trim() : "";
             const chatId = inputChat ? inputChat.value.trim() : "";
 
+            if (!isTelegramConfigured && (!token || !chatId)) {
+                if (feedback) {
+                    feedback.style.color = "#ff3d71";
+                    feedback.textContent = "⚠️ Veuillez renseigner le Token et le Chat ID avant de tester.";
+                }
+                return;
+            }
+
             if (feedback) {
                 feedback.style.color = "#00d2ff";
                 feedback.textContent = "🚀 Envoi du message test vers votre smartphone...";
@@ -2045,7 +2061,8 @@ function setupTelegramModalListeners() {
             const token = inputToken ? inputToken.value.trim() : "";
             const chatId = inputChat ? inputChat.value.trim() : "";
 
-            if (!token || !chatId) {
+            // Si le bot n'est pas encore configuré et qu'aucun token ou chat_id n'est saisi, bloquer
+            if (!isTelegramConfigured && (!token || !chatId)) {
                 if (feedback) {
                     feedback.style.color = "#ff3d71";
                     feedback.textContent = "⚠️ Veuillez renseigner le Token et le Chat ID avant de sauvegarder.";
@@ -2059,12 +2076,12 @@ function setupTelegramModalListeners() {
             const chkBreakeven = document.getElementById("chk-tg-breakeven");
 
             const payload = {
-                token: token,
+                token: token, // Si vide et déjà configuré, le serveur conserve le token actif
                 chat_id: chatId,
                 notify_order_placed: chkOrderPlaced ? chkOrderPlaced.checked : false,
                 notify_position_filled: chkPosFilled ? chkPosFilled.checked : true,
                 notify_trade_closed: chkTradeClosed ? chkTradeClosed.checked : true,
-                notify_breakeven: chkBreakeven ? chkBreakeven.checked : false
+                notify_breakeven: chkBreakeven ? chkBreakeven.checked : true
             };
 
             try {
@@ -2077,16 +2094,16 @@ function setupTelegramModalListeners() {
                 if (res.status === "success") {
                     if (feedback) {
                         feedback.style.color = "#00e676";
-                        feedback.textContent = "💾 Identifiants enregistrés ! Le desk vous notifiera en temps réel.";
+                        feedback.textContent = "💾 Préférences enregistrées ! Vos alertes sont à jour.";
                     }
                     await loadNotificationStatus();
                     setTimeout(() => {
                         if (modal) modal.style.display = "none";
-                    }, 1500);
+                    }, 1200);
                 } else {
                     if (feedback) {
                         feedback.style.color = "#ff3d71";
-                        feedback.textContent = `❌ ${res.detail || "Erreur d'enregistrement."}`;
+                        feedback.textContent = `❌ ${res.message || res.detail || "Erreur d'enregistrement."}`;
                     }
                 }
             } catch (err) {
@@ -2098,6 +2115,7 @@ function setupTelegramModalListeners() {
         });
     }
 }
+
 
 // ==========================================================================
 // Agent Deck Collapse Toggle

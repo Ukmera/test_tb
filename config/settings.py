@@ -65,5 +65,6 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1737414533")
 TELEGRAM_NOTIFY_ORDER_PLACED = os.getenv("TELEGRAM_NOTIFY_ORDER_PLACED", "false").lower() in ("true", "1", "yes")
 TELEGRAM_NOTIFY_POSITION_FILLED = os.getenv("TELEGRAM_NOTIFY_POSITION_FILLED", "true").lower() in ("true", "1", "yes")
 TELEGRAM_NOTIFY_TRADE_CLOSED = os.getenv("TELEGRAM_NOTIFY_TRADE_CLOSED", "true").lower() in ("true", "1", "yes")
-TELEGRAM_NOTIFY_BREAKEVEN = os.getenv("TELEGRAM_NOTIFY_BREAKEVEN", "false").lower() in ("true", "1", "yes")
+TELEGRAM_NOTIFY_BREAKEVEN = os.getenv("TELEGRAM_NOTIFY_BREAKEVEN", "true").lower() in ("true", "1", "yes")
+
 
