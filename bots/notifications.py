@@ -298,7 +298,10 @@ class NotificationManager:
         r_mult = trade.get("r_multiple", 0.0)
         reason = trade.get("exit_reason", "EXIT")
         is_win = pnl >= 0
-        bal = trade.get("closed_balance", 0.0)
+        strat_bal = trade.get("closed_balance", 0.0)
+        basket_bal = trade.get("basket_balance")
+        grp_bal = trade.get("group_balance")
+        grp_code = trade.get("group_code", "")
 
         emoji = "💰" if is_win else "🛑"
         title = f"{emoji} TRADE CLÔTURÉ [{basket_name}] : {'PROFIT' if is_win else 'PERTE'}"
@@ -309,19 +312,31 @@ class NotificationManager:
         fields = [
             {"name": "Résultat PnL", "value": f"{pnl:+.2f}$", "inline": True},
             {"name": "Multiple R", "value": f"{r_mult:+.1f}R", "inline": True},
-            {"name": "Nouveau Solde", "value": f"${bal:.2f}", "inline": True},
+            {"name": "Solde Stratégie", "value": f"${strat_bal:.2f}", "inline": True},
             {"name": "Prix d'entrée", "value": f"${trade.get('entry_price', 0)}", "inline": True},
             {"name": "Prix de sortie", "value": f"${trade.get('exit_price', 0)}", "inline": True}
         ]
+        if basket_bal is not None:
+            fields.append({"name": "Solde Panier", "value": f"${basket_bal:.2f}", "inline": True})
+        if grp_bal is not None:
+            fields.append({"name": f"Solde Groupe {grp_code}".strip(), "value": f"${grp_bal:.2f}", "inline": True})
+
         self._send_discord(title, desc, color_hex=color, fields=fields)
 
         if self.tg_notify_trade_closed:
+            solde_lines = [f"• Solde Stratégie: <b>${strat_bal:.2f}</b>"]
+            if basket_bal is not None:
+                solde_lines.append(f"• Solde Panier: <b>${basket_bal:.2f}</b>")
+            if grp_bal is not None:
+                solde_lines.append(f"• Solde Groupe {grp_code}: <b>${grp_bal:.2f}</b>")
+            soldes_text = "\n".join(solde_lines)
+
             tg_msg = (
                 f"{emoji} <b>TRADE CLÔTURÉ [{basket_name}]</b>\n"
                 f"Asset: <b>{sym}</b> [{reason}]\n"
                 f"PnL: <b>{pnl:+.2f}$ ({r_mult:+.1f}R)</b>\n"
-                f"Nouveau solde: <b>${bal:.2f}</b>\n"
-                f"Entrée: ${trade.get('entry_price', 0)} | Sortie: ${trade.get('exit_price', 0)}"
+                f"Entrée: ${trade.get('entry_price', 0)} | Sortie: ${trade.get('exit_price', 0)}\n"
+                f"{soldes_text}"
             )
             self._send_telegram(tg_msg)
 

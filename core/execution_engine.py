@@ -34,8 +34,12 @@ class ExecutionEngine:
         risk_dist = abs(proposal.entry_price - proposal.stop_loss)
         tp1 = proposal.take_profit_1r if proposal.take_profit_1r > 0 else (proposal.entry_price + risk_dist if proposal.is_long else proposal.entry_price - risk_dist)
         tp2 = proposal.take_profit_2r if proposal.take_profit_2r > 0 else proposal.take_profit
+
+        # Précision décimale adaptative pour les altcoins à faible prix unitaire (ex: MNT, SUI)
+        dec = 4 if proposal.entry_price < 10.0 else 2
+        fee_offset = max(proposal.entry_price * 0.0008, 0.0001 if proposal.entry_price < 10.0 else 1.0)
         true_be = proposal.true_be_price if proposal.true_be_price > 0 else (
-            round(proposal.entry_price + (proposal.entry_price * 0.0008 + 1.0), 2) if proposal.is_long else round(proposal.entry_price - (proposal.entry_price * 0.0008 + 1.0), 2)
+            (proposal.entry_price + fee_offset) if proposal.is_long else (proposal.entry_price - fee_offset)
         )
 
         t1_sz = round(proposal.position_size * 0.33, 6)
@@ -57,10 +61,10 @@ class ExecutionEngine:
             "entry_price": proposal.entry_price,
             "initial_stop_loss": proposal.stop_loss,
             "stop_loss": proposal.stop_loss,
-            "take_profit_1r": round(tp1, 2),
-            "take_profit_2r": round(tp2, 2),
-            "take_profit": round(tp2, 2),
-            "true_be_price": round(true_be, 2),
+            "take_profit_1r": round(tp1, dec),
+            "take_profit_2r": round(tp2, dec),
+            "take_profit": round(tp2, dec),
+            "true_be_price": round(true_be, dec),
             "size": proposal.position_size,
             "initial_size": proposal.position_size,
             "remaining_size": proposal.position_size,

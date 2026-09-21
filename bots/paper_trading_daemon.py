@@ -835,6 +835,11 @@ class PaperTradingDaemon:
                             strat.professors[pos_sym].palermo.record_trade_result(r_multiple)
 
                         closed_trade["closed_balance"] = round(strat.current_balance, 2)
+                        closed_trade["basket_balance"] = round(basket.total_balance, 2)
+                        grp_code = getattr(basket, "group", "A")
+                        grp_total = sum(b.total_balance for b in self.baskets.values() if getattr(b, "group", "A") == grp_code)
+                        closed_trade["group_balance"] = round(grp_total, 2)
+                        closed_trade["group_code"] = grp_code
                         closed_trade["r_multiple"] = r_multiple
                         strat.closed_trades.append(closed_trade)
                         state_changed = True
